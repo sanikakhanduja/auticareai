@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { screenVideo } from "@/services/screening";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Upload,
@@ -15,11 +16,8 @@ import {
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { AgentBadge } from "@/components/AgentBadge";
-import { useAppStore } from "@/lib/store";
-import { runScreening } from "@/services/screening";
-
-const [screeningResult, setScreeningResult] = useState<any>(null);
-
+import { Child } from "@/lib/store";
+import { childrenService } from "@/services/data";
 
 type ScreeningStep = "upload" | "questionnaire" | "processing" | "results";
 
@@ -74,14 +72,66 @@ const objectiveSignals = [
 
 export default function Screening() {
   const navigate = useNavigate();
-  const { children } = useAppStore();
+  const [children, setChildren] = useState<Child[]>([]);
+  const [loadingChildren, setLoadingChildren] = useState(true);
+  const [childrenError, setChildrenError] = useState<string | null>(null);
+  const [screeningResult, setScreeningResult] = useState<any>(null);
   const [step, setStep] = useState<ScreeningStep>("upload");
-  const [selectedChild, setSelectedChild] = useState(children[0]?.id || "");
+  const [selectedChild, setSelectedChild] = useState("");
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [processingStep, setProcessingStep] = useState(0);
   const [riskLevel, setRiskLevel] = useState<"low" | "medium" | "high">("medium");
+  const [screeningError, setScreeningError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const loadChildren = async () => {
+      setLoadingChildren(true);
+      setChildrenError(null);
+
+      const { data, error } = await childrenService.getChildren();
+      if (error) {
+        setChildrenError(error.message || "Failed to load children");
+        setLoadingChildren(false);
+        return;
+      }
+
+      const normalized = (data || []).map((child: any) => ({
+        id: child.id,
+        name: child.name,
+        dateOfBirth: child.date_of_birth,
+        age: 0,
+        gender: child.gender,
+        screeningStatus: child.screening_status,
+        riskLevel: child.risk_level,
+        assignedDoctorId: child.assigned_doctor_id,
+        assignedTherapistId: child.assigned_therapist_id,
+        observationEndDate: child.observation_end_date,
+      }));
+
+      setChildren(normalized);
+      setLoadingChildren(false);
+    };
+
+    loadChildren();
+  }, []);
+
+  const mappedChildren = useMemo(() => {
+    return children.map((child) => {
+      const dob = new Date(child.dateOfBirth);
+      const age = Number.isNaN(dob.getTime())
+        ? child.age
+        : Math.max(0, Math.floor((Date.now() - dob.getTime()) / (365.25 * 24 * 60 * 60 * 1000)));
+      return { ...child, age };
+    });
+  }, [children]);
+
+  useEffect(() => {
+    if (!selectedChild && mappedChildren.length > 0) {
+      setSelectedChild(mappedChildren[0].id);
+    }
+  }, [mappedChildren, selectedChild]);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -108,6 +158,7 @@ export default function Screening() {
   const startProcessing = async () => {
   if (!uploadedFile) return;
 
+  setScreeningError(null);
   setStep("processing");
   setProcessingStep(0);
 
@@ -120,7 +171,7 @@ export default function Screening() {
       if (stepIndex >= processingSteps.length) clearInterval(interval);
     }, 1500);
 
-    const result = await runScreening(uploadedFile);
+    const result = await screenVideo(uploadedFile);
 
     clearInterval(interval);
 
@@ -133,7 +184,7 @@ export default function Screening() {
     setStep("results");
   } catch (err) {
     console.error(err);
-    alert("Screening failed. Please try again.");
+    setScreeningError(err instanceof Error ? err.message : "Screening failed. Please try again.");
     setStep("upload");
   }
 };
@@ -183,25 +234,53 @@ export default function Screening() {
               </p>
             </div>
 
+            {screeningError && (
+              <div className="mb-6 rounded-2xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+                {screeningError}
+              </div>
+            )}
+
             <div className="grid gap-6 lg:grid-cols-2">
               {/* Select Child */}
               <div className="rounded-2xl border border-border bg-card p-6 shadow-card">
                 <h3 className="font-semibold mb-4">Select Child</h3>
                 <div className="space-y-3">
-                  {children.map((child) => (
-                    <button
-                      key={child.id}
-                      onClick={() => setSelectedChild(child.id)}
-                      className={`w-full rounded-xl border-2 p-4 text-left transition-all ${
-                        selectedChild === child.id
-                          ? "border-primary bg-primary/5"
-                          : "border-border hover:border-primary/50"
-                      }`}
-                    >
-                      <p className="font-medium">{child.name}</p>
-                      <p className="text-sm text-muted-foreground">{child.age} years old</p>
-                    </button>
-                  ))}
+                  {childrenError && (
+                    <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+                      {childrenError}
+                    </div>
+                  )}
+
+                  {loadingChildren && (
+                    <div className="rounded-xl border border-border bg-card p-4 text-sm text-muted-foreground">
+                      Loading children...
+                    </div>
+                  )}
+
+                  {!loadingChildren && mappedChildren.length === 0 && !childrenError && (
+                    <div className="rounded-xl border border-dashed border-border p-4 text-sm text-muted-foreground">
+                      No child profiles found. Please add a child to start screening.
+                    </div>
+                  )}
+
+                  {!loadingChildren && mappedChildren.length > 0 && (
+                    <div className="space-y-3">
+                      {mappedChildren.map((child) => (
+                        <button
+                          key={child.id}
+                          onClick={() => setSelectedChild(child.id)}
+                          className={`w-full rounded-xl border-2 p-4 text-left transition-all ${
+                            selectedChild === child.id
+                              ? "border-primary bg-primary/5"
+                              : "border-border hover:border-primary/50"
+                          }`}
+                        >
+                          <p className="font-medium">{child.name}</p>
+                          <p className="text-sm text-muted-foreground">{child.age} years old</p>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
 
