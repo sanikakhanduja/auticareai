@@ -37,3 +37,7 @@ export async function screenVideo(file: File) {
 
   return res.json();
 }
+
+export async function runScreening(file: File) {
+  return screenVideo(file);
+}

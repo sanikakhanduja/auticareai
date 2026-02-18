@@ -8,6 +8,7 @@ import {
   TrendingUp,
   Clock,
   CheckCircle2,
+  Video,
 } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
@@ -15,7 +16,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { AgentBadge } from "@/components/AgentBadge";
 import { Child } from "@/lib/store";
 import { authService } from "@/services/auth";
-import { childrenService, therapySessionsService } from "@/services/data";
+import { childrenService, therapySessionsService, notificationsService } from "@/services/data";
 
 export default function TherapistDashboard() {
   const navigate = useNavigate();
@@ -57,6 +58,7 @@ export default function TherapistDashboard() {
         assignedDoctorId: child.assigned_doctor_id,
         assignedTherapistId: child.assigned_therapist_id,
         observationEndDate: child.observation_end_date,
+        parentId: child.parent_id,
       }));
       setChildren(normalizedChildren);
 
@@ -90,6 +92,8 @@ export default function TherapistDashboard() {
 
   const today = new Date().toISOString().split("T")[0];
   const todaysSessions = sessions.filter((session) => session.scheduled_date === today);
+  const upcomingSessions = sessions.filter((session) => session.scheduled_date >= today);
+  
   const sessionView = todaysSessions.map((session) => {
     const child = mappedChildren.find((c) => c.id === session.child_id);
     return {
@@ -97,9 +101,81 @@ export default function TherapistDashboard() {
       childName: child?.name || "Unknown",
       type: session.type,
       time: session.scheduled_time,
+      date: session.scheduled_date,
       status: session.status,
     };
   });
+
+  const upcomingSessionView = upcomingSessions.map((session) => {
+    const child = mappedChildren.find((c) => c.id === session.child_id);
+    return {
+      id: session.id,
+      childName: child?.name || "Unknown",
+      type: session.type,
+      time: session.scheduled_time,
+      date: session.scheduled_date,
+      status: session.status,
+    };
+  });
+
+  const handleScheduleMeeting = async (child: Child & { parentId?: string }) => {
+    if (!currentUserId) return;
+    
+    // Create Google Calendar event with Google Meet
+    const startDate = new Date();
+    startDate.setHours(startDate.getHours() + 24); // Tomorrow at same time
+    const endDate = new Date(startDate);
+    endDate.setHours(endDate.getHours() + 1); // 1 hour session
+
+    const scheduledDate = startDate.toISOString().split('T')[0]; // YYYY-MM-DD
+    const scheduledTime = startDate.toTimeString().split(' ')[0]; // HH:MM:SS
+
+    // Create therapy session in database
+    const { data: sessionData, error: sessionError } = await therapySessionsService.createSession({
+      childId: child.id,
+      therapistId: currentUserId,
+      type: 'social', // Default type
+      scheduledDate,
+      scheduledTime,
+      goals: `Online therapy session for ${child.name}`,
+      notes: 'Scheduled via Google Calendar',
+    });
+
+    if (sessionError) {
+      alert('Failed to create session: ' + sessionError.message);
+      return;
+    }
+
+    // Create notification for parent if parentId exists
+    if (child.parentId) {
+      await notificationsService.createNotification({
+        userId: child.parentId,
+        type: 'session_scheduled',
+        title: 'Therapy Session Scheduled',
+        message: `A new therapy session has been scheduled for ${child.name} on ${startDate.toLocaleDateString()} at ${startDate.toLocaleTimeString()}.`,
+        link: '/parent/dashboard',
+      });
+    }
+
+    // Refresh sessions list
+    const { data: updatedSessions } = await therapySessionsService.getSessionsForTherapist(currentUserId);
+    if (updatedSessions) {
+      setSessions(updatedSessions);
+    }
+
+    const eventTitle = `Therapy Session - ${child.name}`;
+    const eventDescription = `Online therapy session for ${child.name}\n\nThis is a scheduled therapy session. Google Meet link will be automatically generated.`;
+    
+    // Format dates for Google Calendar (YYYYMMDDTHHMMSSZ)
+    const formatGoogleDate = (date: Date) => {
+      return date.toISOString().replace(/-|:|\.\d\d\d/g, '');
+    };
+
+    const googleCalendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(eventTitle)}&dates=${formatGoogleDate(startDate)}/${formatGoogleDate(endDate)}&details=${encodeURIComponent(eventDescription)}&add=${encodeURIComponent('')}&conf=1`;
+    
+    // Open Google Calendar in new tab
+    window.open(googleCalendarUrl, '_blank');
+  };
 
   const stats = [
     {
@@ -109,8 +185,8 @@ export default function TherapistDashboard() {
       color: "bg-primary/10 text-primary",
     },
     {
-      label: "Sessions Today",
-      value: sessionView.length,
+      label: "Upcoming Sessions",
+      value: upcomingSessionView.length,
       icon: Calendar,
       color: "bg-agent-therapy/10 text-agent-therapy",
     },
@@ -169,11 +245,11 @@ export default function TherapistDashboard() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        {/* Today's Sessions */}
+        {/* Upcoming Sessions */}
         <div>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold">Today's Sessions</h2>
-            <Button variant="outline" size="sm">
+            <h2 className="text-xl font-semibold">Upcoming Sessions</h2>
+            <Button variant="outline" size="sm" onClick={() => navigate("/therapist/sessions")}>
               View All
             </Button>
           </div>
@@ -189,12 +265,12 @@ export default function TherapistDashboard() {
                 Loading sessions...
               </div>
             )}
-            {!loading && sessionView.length === 0 && (
+            {!loading && upcomingSessionView.length === 0 && (
               <div className="rounded-2xl border border-border bg-card p-6 text-sm text-muted-foreground">
-                No sessions scheduled for today.
+                No upcoming sessions scheduled.
               </div>
             )}
-            {!loading && sessionView.map((session, index) => (
+            {!loading && upcomingSessionView.slice(0, 5).map((session, index) => (
               <motion.div
                 key={session.id}
                 initial={{ opacity: 0, x: -10 }}
@@ -205,14 +281,18 @@ export default function TherapistDashboard() {
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="font-semibold">{session.childName}</h3>
-                    <p className="text-sm text-muted-foreground">{session.type}</p>
+                    <p className="text-sm text-muted-foreground capitalize">{session.type} therapy</p>
                   </div>
                   <div className="text-right">
                     <div className="flex items-center gap-2 text-sm font-medium">
-                      <Clock className="h-4 w-4" />
+                      <Calendar className="h-4 w-4" />
+                      {session.date}
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
+                      <Clock className="h-3 w-3" />
                       {session.time}
                     </div>
-                    <span className="text-xs text-success">{session.status}</span>
+                    <span className="text-xs text-success capitalize">{session.status}</span>
                   </div>
                 </div>
                 <div className="mt-4 flex gap-2">
@@ -269,6 +349,17 @@ export default function TherapistDashboard() {
                   >
                     <FileText className="mr-2 h-4 w-4" />
                     View Therapy Plan
+                  </Button>
+                </div>
+                <div className="mt-2">
+                  <Button
+                    size="sm"
+                    variant="default"
+                    className="w-full"
+                    onClick={() => handleScheduleMeeting(child)}
+                  >
+                    <Video className="mr-2 h-4 w-4" />
+                    Schedule Meeting
                   </Button>
                 </div>
               </motion.div>

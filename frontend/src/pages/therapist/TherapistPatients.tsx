@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Users, FileText } from "lucide-react";
+import { Users, FileText, Video } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Child } from "@/lib/store";
 import { authService } from "@/services/auth";
-import { childrenService } from "@/services/data";
+import { childrenService, therapySessionsService, notificationsService } from "@/services/data";
 
 export default function TherapistPatients() {
   const navigate = useNavigate();
@@ -46,6 +46,7 @@ export default function TherapistPatients() {
         assignedDoctorId: child.assigned_doctor_id,
         assignedTherapistId: child.assigned_therapist_id,
         observationEndDate: child.observation_end_date,
+        parentId: child.parent_id,
       }));
 
       setChildren(normalized);
@@ -68,6 +69,61 @@ export default function TherapistPatients() {
   const assignedChildren = currentUserId
     ? mappedChildren.filter((child) => child.assignedTherapistId === currentUserId)
     : mappedChildren;
+
+  const handleScheduleMeeting = async (child: Child & { parentId?: string }) => {
+    if (!currentUserId) return;
+    
+    // Create Google Calendar event with Google Meet
+    const startDate = new Date();
+    startDate.setHours(startDate.getHours() + 24); // Tomorrow at same time
+    const endDate = new Date(startDate);
+    endDate.setHours(endDate.getHours() + 1); // 1 hour session
+
+    const scheduledDate = startDate.toISOString().split('T')[0]; // YYYY-MM-DD
+    const scheduledTime = startDate.toTimeString().split(' ')[0]; // HH:MM:SS
+
+    // Create therapy session in database
+    const { data: sessionData, error: sessionError } = await therapySessionsService.createSession({
+      childId: child.id,
+      therapistId: currentUserId,
+      type: 'social', // Default type
+      scheduledDate,
+      scheduledTime,
+      goals: `Online therapy session for ${child.name}`,
+      notes: 'Scheduled via Google Calendar',
+    });
+
+    if (sessionError) {
+      alert('Failed to create session: ' + sessionError.message);
+      return;
+    }
+
+    // Create notification for parent if parentId exists
+    if (child.parentId) {
+      await notificationsService.createNotification({
+        userId: child.parentId,
+        type: 'session_scheduled',
+        title: 'Therapy Session Scheduled',
+        message: `A new therapy session has been scheduled for ${child.name} on ${startDate.toLocaleDateString()} at ${startDate.toLocaleTimeString()}.`,
+        link: '/parent/dashboard',
+      });
+    }
+
+    alert('Session scheduled successfully!');
+
+    const eventTitle = `Therapy Session - ${child.name}`;
+    const eventDescription = `Online therapy session for ${child.name}\n\nThis is a scheduled therapy session. Google Meet link will be automatically generated.`;
+    
+    // Format dates for Google Calendar (YYYYMMDDTHHMMSSZ)
+    const formatGoogleDate = (date: Date) => {
+      return date.toISOString().replace(/-|:|\.\d\d\d/g, '');
+    };
+
+    const googleCalendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(eventTitle)}&dates=${formatGoogleDate(startDate)}/${formatGoogleDate(endDate)}&details=${encodeURIComponent(eventDescription)}&add=${encodeURIComponent('')}&conf=1`;
+    
+    // Open Google Calendar in new tab
+    window.open(googleCalendarUrl, '_blank');
+  };
 
   return (
     <DashboardLayout>
@@ -118,6 +174,10 @@ export default function TherapistPatients() {
               <Button variant="outline" className="flex-1" onClick={() => navigate(`/therapist/plan/${child.id}`)}>
                 <FileText className="mr-2 h-4 w-4" />
                 View Therapy Plan
+              </Button>
+              <Button variant="default" className="flex-1" onClick={() => handleScheduleMeeting(child)}>
+                <Video className="mr-2 h-4 w-4" />
+                Schedule Meeting
               </Button>
             </div>
           </motion.div>

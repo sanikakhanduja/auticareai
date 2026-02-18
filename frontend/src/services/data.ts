@@ -1,11 +1,50 @@
 import { supabase } from '@/lib/supabase';
 import { Child, Report, ScreeningResult, TherapySession } from '@/lib/store';
 
+export interface TherapistProfile {
+  id: string;
+  fullName: string | null;
+  specialty: string | null;
+}
+
+export interface DoctorProfile {
+  id: string;
+  fullName: string | null;
+  specialty: string | null;
+  state: string | null;
+  district: string | null;
+}
+
+export interface TherapistFeedbackInput {
+  therapistId: string;
+  parentId: string;
+  childId: string;
+  rating: number;
+  comment?: string | null;
+}
+
+export interface SecondOpinionRequestInput {
+  childId: string;
+  reportId: string;
+  parentId: string;
+  requestedDoctorId: string;
+  notes?: string | null;
+}
+
+export interface ChildProgressFeedbackInput {
+  sessionId: string;
+  childId: string;
+  therapistId: string;
+  parentId: string;
+  progressText: string;
+}
+
 export const childrenService = {
   async getChildren() {
     const { data, error } = await supabase
       .from('children')
       .select('*')
+      .eq('is_active', true)
       .order('created_at', { ascending: false });
     return { data, error };
   },
@@ -32,6 +71,7 @@ export const childrenService = {
           risk_level: child.riskLevel,
           assigned_doctor_id: child.assignedDoctorId,
           assigned_therapist_id: child.assignedTherapistId,
+          is_active: true,
           // Map other fields as needed, handling snake_case vs camelCase
         }
       ])
@@ -56,6 +96,9 @@ export const childrenService = {
     if (Object.prototype.hasOwnProperty.call(updates, 'observationEndDate')) {
       dbUpdates.observation_end_date = updates.observationEndDate ?? null;
     }
+    if (Object.prototype.hasOwnProperty.call(updates, 'isActive')) {
+      dbUpdates.is_active = updates.isActive ?? true;
+    }
 
     const { data, error } = await supabase
       .from('children')
@@ -63,6 +106,34 @@ export const childrenService = {
       .eq('id', id)
       .select()
       .single();
+    return { data, error };
+  },
+};
+
+export const childProgressFeedbackService = {
+  async createFeedback(input: ChildProgressFeedbackInput) {
+    const { data, error } = await supabase
+      .from('child_progress_feedback')
+      .insert([
+        {
+          session_id: input.sessionId,
+          child_id: input.childId,
+          therapist_id: input.therapistId,
+          parent_id: input.parentId,
+          progress_text: input.progressText,
+        }
+      ])
+      .select()
+      .single();
+    return { data, error };
+  },
+
+  async getFeedbackForParent(parentId: string) {
+    const { data, error } = await supabase
+      .from('child_progress_feedback')
+      .select('*')
+      .eq('parent_id', parentId)
+      .order('created_at', { ascending: false });
     return { data, error };
   },
 };
@@ -246,6 +317,222 @@ export const careDoctorsService = {
       p_child_id: childId,
       p_doctor_id: doctorId,
     });
+    return { data, error };
+  },
+};
+
+export const profilesService = {
+  async getDoctors() {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, full_name, specialty, state, district')
+      .eq('role', 'doctor')
+      .order('full_name', { ascending: true });
+    return { data, error };
+  },
+
+  async updateLocation(id: string, input: { state: string; district: string }) {
+    const { data, error } = await supabase
+      .from('profiles')
+      .update({
+        state: input.state,
+        district: input.district,
+      })
+      .eq('id', id)
+      .select('id, state, district')
+      .single();
+    return { data, error };
+  },
+
+  async getTherapists() {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, full_name, specialty')
+      .eq('role', 'therapist')
+      .order('full_name', { ascending: true });
+    return { data, error };
+  },
+
+  async getProfileById(id: string) {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, full_name, specialty, role')
+      .eq('id', id)
+      .single();
+    return { data, error };
+  },
+
+  async getDoctorInfo(doctorId: string) {
+    const apiBase = import.meta.env.VITE_API_URL;
+    if (!apiBase) {
+      throw new Error("VITE_API_URL is not set");
+    }
+
+    try {
+      const response = await fetch(`${apiBase}/api/doctors/${doctorId}/info`);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch doctor info: ${response.status}`);
+      }
+      const result = await response.json();
+      return { data: result.doctor, error: null };
+    } catch (error) {
+      return { data: null, error: error instanceof Error ? error.message : 'Failed to fetch doctor info' };
+    }
+  },
+
+  async getAllDoctorsWithStats() {
+    const apiBase = import.meta.env.VITE_API_URL;
+    if (!apiBase) {
+      throw new Error("VITE_API_URL is not set");
+    }
+
+    try {
+      const response = await fetch(`${apiBase}/api/doctors/stats/all`);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch doctor stats: ${response.status}`);
+      }
+      const result = await response.json();
+      return { data: result.doctors, error: null };
+    } catch (error) {
+      return { data: null, error: error instanceof Error ? error.message : 'Failed to fetch doctor stats' };
+    }
+  },
+};
+
+export const therapistFeedbackService = {
+  async getFeedbackForTherapists(therapistIds: string[]) {
+    if (therapistIds.length === 0) return { data: [], error: null } as const;
+    const { data, error } = await supabase
+      .from('therapist_feedback')
+      .select('therapist_id, rating')
+      .in('therapist_id', therapistIds);
+    return { data, error };
+  },
+
+  async createFeedback(input: TherapistFeedbackInput) {
+    const { data, error } = await supabase
+      .from('therapist_feedback')
+      .insert([
+        {
+          therapist_id: input.therapistId,
+          parent_id: input.parentId,
+          child_id: input.childId,
+          rating: input.rating,
+          comment: input.comment ?? null,
+        },
+      ])
+      .select()
+      .single();
+    return { data, error };
+  },
+};
+
+export const secondOpinionService = {
+  async getRequestForReport(reportId: string, parentId: string) {
+    const { data, error } = await supabase
+      .from('second_opinion_requests')
+      .select('*')
+      .eq('report_id', reportId)
+      .eq('parent_id', parentId)
+      .maybeSingle();
+    return { data, error };
+  },
+
+  async createRequest(input: SecondOpinionRequestInput) {
+    try {
+      const apiBase = import.meta.env.VITE_API_URL;
+      if (!apiBase) {
+        return { data: null, error: { message: 'API URL not configured' } };
+      }
+
+      const { data: session } = await supabase.auth.getSession();
+      const userId = session?.session?.user?.id;
+      
+      if (!userId) {
+        return { data: null, error: { message: 'User not authenticated' } };
+      }
+
+      const response = await fetch(`${apiBase}/api/doctors/second-opinion/request`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': userId,
+        },
+        body: JSON.stringify({
+          childId: input.childId,
+          reportId: input.reportId,
+          requestedDoctorId: input.requestedDoctorId,
+          notes: input.notes ?? null,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        return { data: null, error: { message: errorData.error || 'Failed to create second opinion request' } };
+      }
+
+      const result = await response.json();
+      return { data: result.data, error: null };
+    } catch (err) {
+      return { 
+        data: null, 
+        error: { message: err instanceof Error ? err.message : 'Failed to create second opinion request' } 
+      };
+    }
+  },
+};
+
+export const notificationsService = {
+  async getNotifications(userId: string) {
+    const { data, error } = await supabase
+      .from('notifications')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+    return { data, error };
+  },
+
+  async getUnreadNotifications(userId: string) {
+    const { data, error } = await supabase
+      .from('notifications')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('read', false)
+      .order('created_at', { ascending: false });
+    return { data, error };
+  },
+
+  async markAsRead(notificationId: string) {
+    const { data, error } = await supabase
+      .from('notifications')
+      .update({ read: true })
+      .eq('id', notificationId)
+      .select()
+      .single();
+    return { data, error };
+  },
+
+  async createNotification(input: {
+    userId: string;
+    type: 'session_scheduled' | 'report_ready' | 'second_opinion' | 'general';
+    title: string;
+    message: string;
+    link?: string;
+  }) {
+    const { data, error } = await supabase
+      .from('notifications')
+      .insert([
+        {
+          user_id: input.userId,
+          type: input.type,
+          title: input.title,
+          message: input.message,
+          link: input.link || null,
+          read: false,
+        },
+      ])
+      .select()
+      .single();
     return { data, error };
   },
 };

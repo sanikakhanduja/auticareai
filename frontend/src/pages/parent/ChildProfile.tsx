@@ -29,6 +29,22 @@ export default function ChildProfile() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const handleEndTreatment = async () => {
+    if (!child) return;
+    const confirmed = window.confirm(
+      "Are you sure you want to remove this child from active treatment? You can add them again later."
+    );
+    if (!confirmed) return;
+
+    const { error: updateError } = await childrenService.updateChild(child.id, { isActive: false });
+    if (updateError) {
+      setError(updateError.message || "Failed to remove child");
+      return;
+    }
+
+    navigate("/parent/children");
+  };
+
   useEffect(() => {
     const loadChild = async () => {
       if (!childId) return;
@@ -187,6 +203,9 @@ export default function ChildProfile() {
           </div>
           <div className="flex items-center gap-2">
             {child.riskLevel && <StatusBadge riskLevel={child.riskLevel} />}
+            <Button variant="destructive" size="sm" onClick={handleEndTreatment}>
+              End Treatment
+            </Button>
           </div>
         </div>
       </motion.div>

@@ -13,7 +13,7 @@ import { DashboardLayout } from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { therapySessionsService } from "@/services/data";
+import { childProgressFeedbackService, childrenService, therapySessionsService } from "@/services/data";
 
 export default function SessionNotes() {
   const navigate = useNavigate();
@@ -31,6 +31,9 @@ export default function SessionNotes() {
     scheduledDate?: string;
     scheduledTime?: string;
     type?: string;
+    childId?: string;
+    therapistId?: string;
+    parentId?: string;
   } | null>(null);
 
   useEffect(() => {
@@ -49,7 +52,19 @@ export default function SessionNotes() {
         scheduledDate: data.scheduled_date,
         scheduledTime: data.scheduled_time,
         type: data.type,
+        childId: data.child_id,
+        therapistId: data.therapist_id,
       });
+
+      if (data.child_id) {
+        const { data: childData } = await childrenService.getChildById(data.child_id);
+        if (childData?.parent_id) {
+          setSessionMeta((prev) => ({
+            ...prev,
+            parentId: childData.parent_id,
+          }));
+        }
+      }
 
       if (data.notes) {
         try {
@@ -72,6 +87,10 @@ export default function SessionNotes() {
 
   const handleSave = async () => {
     if (!sessionId) return;
+    if (!notes.progress.trim()) {
+      setError("Please describe the child's progress before saving.");
+      return;
+    }
     const { error } = await therapySessionsService.updateSession(sessionId, {
       notes: JSON.stringify(notes),
       status: "completed",
@@ -79,6 +98,20 @@ export default function SessionNotes() {
     if (error) {
       setError(error.message || "Failed to save notes");
       return;
+    }
+
+    if (sessionMeta?.childId && sessionMeta?.therapistId && sessionMeta?.parentId) {
+      const { error: feedbackError } = await childProgressFeedbackService.createFeedback({
+        sessionId,
+        childId: sessionMeta.childId,
+        therapistId: sessionMeta.therapistId,
+        parentId: sessionMeta.parentId,
+        progressText: notes.progress.trim(),
+      });
+      if (feedbackError) {
+        setError(feedbackError.message || "Failed to save progress feedback");
+        return;
+      }
     }
     setSaved(true);
     setTimeout(() => {

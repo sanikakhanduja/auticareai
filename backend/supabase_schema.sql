@@ -6,6 +6,9 @@ CREATE TABLE public.profiles (
   id UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
   email TEXT NOT NULL,
   full_name TEXT,
+  specialty TEXT,
+  state TEXT,
+  district TEXT,
   role TEXT CHECK (role IN ('parent', 'doctor', 'therapist')),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
@@ -61,12 +64,36 @@ CREATE TABLE public.therapy_sessions (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
+-- 6. Therapist Feedback Table
+CREATE TABLE public.therapist_feedback (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  therapist_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  parent_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  child_id UUID REFERENCES public.children(id) ON DELETE CASCADE NOT NULL,
+  rating INT CHECK (rating >= 1 AND rating <= 5) NOT NULL,
+  comment TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- 7. Second Opinion Requests Table
+CREATE TABLE public.second_opinion_requests (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  child_id UUID REFERENCES public.children(id) ON DELETE CASCADE NOT NULL,
+  report_id UUID REFERENCES public.reports(id) ON DELETE CASCADE NOT NULL,
+  parent_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  status TEXT CHECK (status IN ('requested', 'in-review', 'completed')) DEFAULT 'requested',
+  notes TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
 -- Enable Row Level Security
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.children ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.screening_results ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.reports ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.therapy_sessions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.therapist_feedback ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.second_opinion_requests ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies
 
@@ -128,12 +155,75 @@ CREATE POLICY "Professionals can create reports" ON public.reports
     EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role IN ('doctor', 'therapist'))
   );
 
+-- Therapist Feedback
+CREATE POLICY "Therapist feedback viewable by everyone" ON public.therapist_feedback
+  FOR SELECT USING (true);
+
+CREATE POLICY "Parents can submit feedback for their children" ON public.therapist_feedback
+  FOR INSERT WITH CHECK (
+    auth.uid() = parent_id AND
+    EXISTS (
+      SELECT 1
+      FROM public.children
+      WHERE id = child_id
+        AND parent_id = auth.uid()
+        AND assigned_therapist_id = therapist_id
+    )
+  );
+
+-- Second Opinion Requests
+CREATE POLICY "Parents can view second opinion requests" ON public.second_opinion_requests
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1
+      FROM public.children
+      WHERE id = child_id
+        AND parent_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "Parents can request second opinion" ON public.second_opinion_requests
+  FOR INSERT WITH CHECK (
+    auth.uid() = parent_id AND
+    EXISTS (
+      SELECT 1
+      FROM public.children
+      WHERE id = child_id
+        AND parent_id = auth.uid()
+    ) AND
+    EXISTS (
+      SELECT 1
+      FROM public.reports
+      WHERE id = report_id
+        AND child_id = second_opinion_requests.child_id
+        AND type = 'diagnostic'
+    )
+  );
+
+CREATE POLICY "Doctors can view second opinion requests" ON public.second_opinion_requests
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1
+      FROM public.profiles
+      WHERE id = auth.uid()
+        AND role = 'doctor'
+    )
+  );
+
 -- Function to handle new user signup
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger AS $$
 BEGIN
-  INSERT INTO public.profiles (id, email, full_name, role)
-  VALUES (new.id, new.email, new.raw_user_meta_data->>'full_name', COALESCE(new.raw_user_meta_data->>'role', 'parent'));
+  INSERT INTO public.profiles (id, email, full_name, role, specialty, state, district)
+  VALUES (
+    new.id,
+    new.email,
+    new.raw_user_meta_data->>'full_name',
+    COALESCE(new.raw_user_meta_data->>'role', 'parent'),
+    new.raw_user_meta_data->>'specialty',
+    new.raw_user_meta_data->>'state',
+    new.raw_user_meta_data->>'district'
+  );
   RETURN new;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;

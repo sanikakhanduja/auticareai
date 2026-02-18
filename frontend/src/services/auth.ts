@@ -2,7 +2,17 @@ import { supabase } from '@/lib/supabase';
 import { UserRole } from '@/lib/store';
 
 export const authService = {
-  async signUp(email: string, password: string, fullName: string, role: UserRole) {
+  async signUp(
+    email: string,
+    password: string,
+    fullName: string,
+    role: UserRole,
+    metadata?: {
+      specialty?: string;
+      state?: string;
+      district?: string;
+    },
+  ) {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -10,6 +20,9 @@ export const authService = {
         data: {
           full_name: fullName,
           role: role,
+          specialty: metadata?.specialty,
+          state: metadata?.state,
+          district: metadata?.district,
         },
       },
     });

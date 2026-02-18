@@ -12,6 +12,8 @@ import {
   Eye,
   Brain,
   Activity,
+  Clock,
+  AlertCircle,
 } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
@@ -523,7 +525,46 @@ export default function Screening() {
               <p className="text-muted-foreground mt-2">
                     AI-generated screening summary
               </p>
+            </div>
 
+            {/* Status Banner */}
+            <div className="mb-6 rounded-2xl border border-border bg-card p-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  {screeningStatus === "in-progress" && (
+                    <>
+                      <Clock className="h-6 w-6 text-warning animate-spin" />
+                      <div>
+                        <p className="font-semibold text-warning">In Progress</p>
+                        <p className="text-sm text-muted-foreground">Screening is being processed</p>
+                      </div>
+                    </>
+                  )}
+                  {screeningStatus === "pending" && (
+                    <>
+                      <AlertCircle className="h-6 w-6 text-primary" />
+                      <div>
+                        <p className="font-semibold text-primary">Pending Review</p>
+                        <p className="text-sm text-muted-foreground">Awaiting doctor's clinical review</p>
+                      </div>
+                    </>
+                  )}
+                  {screeningStatus === "reviewed" && (
+                    <>
+                      <CheckCircle2 className="h-6 w-6 text-success" />
+                      <div>
+                        <p className="font-semibold text-success">Reviewed</p>
+                        <p className="text-sm text-muted-foreground">Doctor has reviewed the results</p>
+                      </div>
+                    </>
+                  )}
+                </div>
+                {savingStatus && (
+                  <div className="text-sm text-muted-foreground animate-pulse">
+                    Saving status...
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="grid gap-6 lg:grid-cols-3">
@@ -602,10 +643,9 @@ export default function Screening() {
 
                 {/* Next Steps */}
                 <div className="mt-6 rounded-2xl border border-primary bg-primary/5 p-6">
-                  <h3 className="font-semibold mb-2">Next Steps</h3>
+                  <h3 className="font-semibold mb-2">What's Next?</h3>
                   <p className="text-muted-foreground mb-4">
-                    These results have been shared with your assigned doctor for clinical review.
-                    You will be notified once the review is complete.
+                    Your screening has been saved with a status of <span className="font-semibold text-primary">Pending Review</span>. Your assigned doctor can now review these results from their dashboard. You'll be notified once they complete their clinical review.
                   </p>
                   <div className="flex gap-3">
                     <Button onClick={() => navigate(`/parent/progress?childId=${selectedChildId}`)}>
@@ -621,6 +661,21 @@ export default function Screening() {
 
               {/* AI Agents Sidebar */}
               <div className="space-y-4">
+                <div className="rounded-2xl border border-border bg-card p-6 shadow-card">
+                  <h3 className="font-semibold mb-4">Screening Status</h3>
+                  <div className="space-y-3">
+                    <div className="rounded-lg bg-muted/50 p-3 border border-primary/20">
+                      <p className="text-xs font-medium text-muted-foreground mb-1">CURRENT STATUS</p>
+                      <p className="text-lg font-bold capitalize text-primary">{screeningStatus}</p>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        {screeningStatus === "pending" && "Waiting for doctor review"}
+                        {screeningStatus === "in-progress" && "Processing screening data"}
+                        {screeningStatus === "reviewed" && "Doctor has reviewed results"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="rounded-2xl border border-border bg-card p-6 shadow-card">
                   <h3 className="font-semibold mb-4">AI Agents Involved</h3>
                   <div className="space-y-4">

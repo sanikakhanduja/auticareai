@@ -15,6 +15,7 @@ import {
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -22,16 +23,31 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useAppStore } from "@/lib/store";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Child } from "@/lib/store";
+import { authService } from "@/services/auth";
+import { childrenService, profilesService, therapistFeedbackService } from "@/services/data";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { careDoctorsService, childrenService } from "@/services/data";
 
 interface Doctor {
   id: string;
   name: string;
-  assigned_patients: number;
-  max_patients: number;
+  qualification: string;
+  specialization: string;
+  rating: number;
+  reviews: number;
+  location: string;
   available: boolean;
+  state?: string | null;
+  district?: string | null;
+  patientCount?: number;
+  canAcceptPatients?: boolean;
 }
 
 interface Therapist {
@@ -48,194 +64,317 @@ interface Therapist {
 
 const libraries: ("places")[] = ["places"];
 
-const mockTherapists: Therapist[] = [
-  {
-    id: "ther1",
-    name: "Jennifer Adams",
-    qualification: "M.S., CCC-SLP",
-    specialization: "Speech-Language Pathology",
-    rating: 4.9,
-    reviews: 89,
-    location: "Therapy Solutions Center, 1.8 miles",
-    available: true,
-    therapyTypes: ["Speech", "Communication"],
-  },
-  {
-    id: "ther2",
-    name: "Michael Torres",
-    qualification: "OTR/L",
-    specialization: "Pediatric Occupational Therapy",
-    rating: 4.8,
-    reviews: 112,
-    location: "Kids Development Center, 2.5 miles",
-    available: true,
-    therapyTypes: ["Motor", "Sensory"],
-  },
-  {
-    id: "ther3",
-    name: "Lisa Park",
-    qualification: "BCBA",
-    specialization: "Applied Behavior Analysis",
-    rating: 4.9,
-    reviews: 145,
-    location: "Behavioral Health Partners, 3.2 miles",
-    available: true,
-    therapyTypes: ["Social", "Behavioral"],
-  },
+const indiaStates = [
+  "Andaman and Nicobar Islands",
+  "Andhra Pradesh",
+  "Arunachal Pradesh",
+  "Assam",
+  "Bihar",
+  "Chandigarh",
+  "Chhattisgarh",
+  "Dadra and Nagar Haveli and Daman and Diu",
+  "Delhi",
+  "Goa",
+  "Gujarat",
+  "Haryana",
+  "Himachal Pradesh",
+  "Jammu and Kashmir",
+  "Jharkhand",
+  "Karnataka",
+  "Kerala",
+  "Ladakh",
+  "Lakshadweep",
+  "Madhya Pradesh",
+  "Maharashtra",
+  "Manipur",
+  "Meghalaya",
+  "Mizoram",
+  "Nagaland",
+  "Odisha",
+  "Puducherry",
+  "Punjab",
+  "Rajasthan",
+  "Sikkim",
+  "Tamil Nadu",
+  "Telangana",
+  "Tripura",
+  "Uttar Pradesh",
+  "Uttarakhand",
+  "West Bengal",
 ];
 
 export default function FindProfessionals() {
-  const { selectedChildId, setSelectedChildId } = useAppStore();
-  const [children, setChildren] = useState<any[]>([]);
-  const [doctors, setDoctors] = useState<Doctor[]>([]);
-  const [doctorAssignmentsByChild, setDoctorAssignmentsByChild] = useState<Record<string, string>>({});
-  const [loadingChildren, setLoadingChildren] = useState(true);
-  const [loadingDoctors, setLoadingDoctors] = useState(true);
-  const [doctorError, setDoctorError] = useState<string | null>(null);
-  const [currentChild, setCurrentChild] = useState<any>(null);
+  const [children, setChildren] = useState<Child[]>([]);
+  const [selectedChild, setSelectedChild] = useState("");
   const [selectedDoctor, setSelectedDoctor] = useState<string | null>(null);
   const [selectedTherapist, setSelectedTherapist] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [location, setLocation] = useState<{ lat: number; lng: number; address: string } | null>(null);
-
-  useEffect(() => {
-    const loadChildren = async () => {
-      setLoadingChildren(true);
-      const { data, error } = await childrenService.getChildren();
-      if (error) {
-        console.error("Error loading children:", error);
-        setLoadingChildren(false);
-        return;
-      }
-
-      const normalized = (data || []).map((child: any) => ({
-        id: child.id,
-        name: child.name,
-        dateOfBirth: child.date_of_birth,
-        age: 0,
-        gender: child.gender,
-        screeningStatus: child.screening_status,
-        riskLevel: child.risk_level,
-        assignedDoctorId: child.assigned_doctor_id,
-        assignedTherapistId: child.assigned_therapist_id,
-        observationEndDate: child.observation_end_date,
-      }));
-
-      setChildren(normalized);
-
-      if (selectedChildId) {
-        const selected = normalized.find((c) => c.id === selectedChildId);
-        if (selected) {
-          setCurrentChild(selected);
-        } else if (normalized.length > 0) {
-          setCurrentChild(normalized[0]);
-          setSelectedChildId(normalized[0].id);
-        }
-      } else if (normalized.length > 0) {
-        setCurrentChild(normalized[0]);
-        setSelectedChildId(normalized[0].id);
-      }
-
-      setLoadingChildren(false);
-    };
-
-    loadChildren();
-  }, []);
-
-  const loadDoctorData = async () => {
-    setLoadingDoctors(true);
-    setDoctorError(null);
-
-    const [{ data: doctorsData, error: doctorsError }, { data: assignmentsData, error: assignmentsError }] = await Promise.all([
-      careDoctorsService.getCareDoctorsWithCapacity(),
-      careDoctorsService.getMyChildDoctorAssignments(),
-    ]);
-
-    if (doctorsError) {
-      console.error("Error loading doctors:", doctorsError);
-      setDoctorError("Could not load doctors right now.");
-    }
-
-    if (assignmentsError) {
-      console.error("Error loading doctor assignments:", assignmentsError);
-      setDoctorError("Could not load saved doctor selections.");
-    }
-
-    setDoctors((doctorsData as Doctor[]) || []);
-
-    const assignmentsMap: Record<string, string> = {};
-    for (const row of assignmentsData || []) {
-      assignmentsMap[row.child_id] = row.doctor_id;
-    }
-    setDoctorAssignmentsByChild(assignmentsMap);
-    setLoadingDoctors(false);
-  };
-
-  useEffect(() => {
-    loadDoctorData();
-  }, []);
-
-  useEffect(() => {
-    if (!currentChild) {
-      setSelectedDoctor(null);
-      setSelectedTherapist(null);
-      return;
-    }
-
-    setSelectedDoctor(doctorAssignmentsByChild[currentChild.id] || null);
-    setSelectedTherapist(currentChild.assignedTherapistId || null);
-  }, [currentChild, doctorAssignmentsByChild]);
-
-  const handleChildChange = (childId: string) => {
-    setSelectedChildId(childId);
-    const selected = children.find((c) => c.id === childId);
-    if (selected) {
-      setCurrentChild(selected);
-    }
-  };
+  const [selectedState, setSelectedState] = useState<string>("all");
+  const [districtQuery, setDistrictQuery] = useState("");
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [loadingDoctors, setLoadingDoctors] = useState(true);
+  const [therapists, setTherapists] = useState<Therapist[]>([]);
+  const [loadingTherapists, setLoadingTherapists] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [feedbackRating, setFeedbackRating] = useState("5");
+  const [feedbackComment, setFeedbackComment] = useState("");
+  const [feedbackError, setFeedbackError] = useState<string | null>(null);
+  const [feedbackSuccess, setFeedbackSuccess] = useState<string | null>(null);
+  const [assignError, setAssignError] = useState<string | null>(null);
+  const [showChangeDoctorModal, setShowChangeDoctorModal] = useState(false);
+  const [showChangeTherapistModal, setShowChangeTherapistModal] = useState(false);
 
   const { isLoaded } = useLoadScript({
     googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "",
     libraries,
   });
 
-  const isDiagnosed = currentChild?.screeningStatus === "diagnosed";
+  const child = children.find((c) => c.id === selectedChild);
+  const isDiagnosed = child?.screeningStatus === "diagnosed";
 
   const handleSelectDoctor = async (doctorId: string) => {
-    if (!currentChild) return;
-
-    setDoctorError(null);
-    const { data, error } = await careDoctorsService.assignDoctorToChild(currentChild.id, doctorId);
-    const rpcResult = Array.isArray(data) ? data[0] : data;
-
-    if (error || !rpcResult?.success) {
-      setDoctorError(rpcResult?.error || error?.message || "Unable to assign doctor right now.");
-      await loadDoctorData();
+    if (!child) return;
+    
+    // Check if doctor can accept patients
+    const doctor = doctors.find(d => d.id === doctorId);
+    if (doctor && !doctor.canAcceptPatients) {
+      setAssignError("This doctor is at capacity (5 patients maximum) and cannot accept new patients");
       return;
     }
 
+    setAssignError(null);
+    const { error } = await childrenService.updateChild(child.id, { assignedDoctorId: doctorId });
+    if (error) {
+      setAssignError(error.message || "Failed to assign doctor");
+      return;
+    }
     setSelectedDoctor(doctorId);
-    setDoctorAssignmentsByChild((prev) => ({ ...prev, [currentChild.id]: doctorId }));
-    await loadDoctorData();
+    setChildren((prev) =>
+      prev.map((entry) => (entry.id === child.id ? { ...entry, assignedDoctorId: doctorId } : entry))
+    );
   };
 
   const handleSelectTherapist = async (therapistId: string) => {
-    if (!isDiagnosed) return;
-    setSelectedTherapist(therapistId);
-    if (currentChild) {
-      await childrenService.updateChild(currentChild.id, { assignedTherapistId: therapistId });
+    if (!isDiagnosed || !child) return;
+    setAssignError(null);
+    const { error } = await childrenService.updateChild(child.id, { assignedTherapistId: therapistId });
+    if (error) {
+      setAssignError(error.message || "Failed to assign therapist");
+      return;
     }
+    setSelectedTherapist(therapistId);
+    setChildren((prev) =>
+      prev.map((entry) => (entry.id === child.id ? { ...entry, assignedTherapistId: therapistId } : entry))
+    );
   };
 
-  const filteredDoctors = doctors.filter((doc) =>
-    doc.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    doc.id.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredDoctors = doctors.filter((doc) => {
+    const matchesSearch =
+      doc.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      doc.specialization.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesState = selectedState !== "all" ? doc.state === selectedState : true;
+    const matchesDistrict = districtQuery
+      ? (doc.district || "").toLowerCase().includes(districtQuery.toLowerCase())
+      : true;
+    return matchesSearch && matchesState && matchesDistrict;
+  });
 
-  const filteredTherapists = mockTherapists.filter((ther) =>
+  const filteredTherapists = therapists.filter((ther) =>
     ther.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     ther.specialization.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const assignedTherapist = child?.assignedTherapistId
+    ? therapists.find((therapist) => therapist.id === child.assignedTherapistId)
+    : null;
+
+  const assignedDoctor = child?.assignedDoctorId
+    ? doctors.find((doctor) => doctor.id === child.assignedDoctorId)
+    : null;
+
+  useEffect(() => {
+    const loadUser = async () => {
+      const user = await authService.getCurrentUser();
+      setCurrentUserId(user?.id || null);
+    };
+    loadUser();
+  }, []);
+
+  useEffect(() => {
+    const loadChildren = async () => {
+      setLoadError(null);
+      const { data, error } = await childrenService.getChildren();
+      if (error) {
+        setLoadError(error.message || "Failed to load children");
+        return;
+      }
+
+      const normalized = (data || []).map((entry: any) => ({
+        id: entry.id,
+        name: entry.name,
+        dateOfBirth: entry.date_of_birth,
+        age: 0,
+        gender: entry.gender,
+        screeningStatus: entry.screening_status,
+        riskLevel: entry.risk_level,
+        assignedDoctorId: entry.assigned_doctor_id,
+        assignedTherapistId: entry.assigned_therapist_id,
+        observationEndDate: entry.observation_end_date,
+      }));
+
+      setChildren(normalized);
+      if (normalized.length > 0) {
+        const first = normalized[0];
+        setSelectedChild((current) => current || first.id);
+        setSelectedDoctor(first.assignedDoctorId || null);
+        setSelectedTherapist(first.assignedTherapistId || null);
+      }
+    };
+
+    loadChildren();
+  }, []);
+
+  useEffect(() => {
+    const loadDoctors = async () => {
+      setLoadingDoctors(true);
+      setLoadError(null);
+
+      const { data, error } = await profilesService.getAllDoctorsWithStats();
+      if (error) {
+        setLoadError(error.message || "Failed to load doctors");
+        setLoadingDoctors(false);
+        return;
+      }
+
+      const doctorIds = (data || []).map((profile: any) => profile.id);
+      const { data: feedbackData, error: feedbackError } =
+        await therapistFeedbackService.getFeedbackForTherapists(doctorIds);
+
+      if (feedbackError) {
+        console.warn("Failed to load doctor ratings:", feedbackError.message);
+      }
+
+      const ratingMap: Record<string, { total: number; count: number }> = {};
+      (feedbackData || []).forEach((row: any) => {
+        const current = ratingMap[row.therapist_id] || { total: 0, count: 0 };
+        ratingMap[row.therapist_id] = {
+          total: current.total + (row.rating || 0),
+          count: current.count + 1,
+        };
+      });
+
+      const mapped = (data || []).map((profile: any) => {
+        const district = profile.district || "";
+        const state = profile.state || "";
+        const locationLabel = district && state ? `${district}, ${state}` : state || district || "Location not set";
+        const ratingStats = ratingMap[profile.id];
+        const average = ratingStats ? ratingStats.total / ratingStats.count : 0;
+        return {
+          id: profile.id,
+          name: profile.full_name || "Doctor",
+          qualification: "Licensed Doctor",
+          specialization: profile.specialty || "General Medicine",
+          rating: Number(average.toFixed(1)),
+          reviews: ratingStats?.count || 0,
+          location: locationLabel,
+          available: true,
+          state: profile.state,
+          district: profile.district,
+          patientCount: profile.patientCount || 0,
+          canAcceptPatients: profile.canAcceptPatients ?? true,
+        } as Doctor;
+      });
+
+      setDoctors(mapped);
+      setLoadingDoctors(false);
+    };
+
+    loadDoctors();
+  }, []);
+
+  useEffect(() => {
+    const current = children.find((entry) => entry.id === selectedChild);
+    setSelectedDoctor(current?.assignedDoctorId || null);
+    setSelectedTherapist(current?.assignedTherapistId || null);
+  }, [children, selectedChild]);
+
+  const refreshTherapists = async () => {
+    setLoadingTherapists(true);
+    setLoadError(null);
+
+    const { data: therapistProfiles, error } = await profilesService.getTherapists();
+    if (error) {
+      setLoadError(error.message || "Failed to load therapists");
+      setLoadingTherapists(false);
+      return;
+    }
+
+    const therapistIds = (therapistProfiles || []).map((profile: any) => profile.id);
+    const { data: feedbackData, error: feedbackError } =
+      await therapistFeedbackService.getFeedbackForTherapists(therapistIds);
+
+    if (feedbackError) {
+      setLoadError(feedbackError.message || "Failed to load therapist ratings");
+    }
+
+    const ratingMap: Record<string, { total: number; count: number }> = {};
+    (feedbackData || []).forEach((row: any) => {
+      const current = ratingMap[row.therapist_id] || { total: 0, count: 0 };
+      ratingMap[row.therapist_id] = {
+        total: current.total + (row.rating || 0),
+        count: current.count + 1,
+      };
+    });
+
+    const mapped = (therapistProfiles || []).map((profile: any) => {
+      const ratingStats = ratingMap[profile.id];
+      const average = ratingStats ? ratingStats.total / ratingStats.count : 0;
+      const specialty = profile.specialty || "General Therapy";
+      return {
+        id: profile.id,
+        name: profile.full_name || "Therapist",
+        qualification: "Licensed Therapist",
+        specialization: specialty,
+        rating: Number(average.toFixed(1)),
+        reviews: ratingStats?.count || 0,
+        location: "Remote / Local",
+        available: true,
+        therapyTypes: specialty ? [specialty] : [],
+      } as Therapist;
+    });
+
+    setTherapists(mapped);
+    setLoadingTherapists(false);
+  };
+
+  useEffect(() => {
+    refreshTherapists();
+  }, []);
+
+  const handleSubmitFeedback = async () => {
+    if (!child || !child.assignedTherapistId || !currentUserId) return;
+    setFeedbackError(null);
+    setFeedbackSuccess(null);
+
+    const { error } = await therapistFeedbackService.createFeedback({
+      therapistId: child.assignedTherapistId,
+      parentId: currentUserId,
+      childId: child.id,
+      rating: Number(feedbackRating),
+      comment: feedbackComment.trim() ? feedbackComment.trim() : null,
+    });
+
+    if (error) {
+      setFeedbackError(error.message || "Failed to submit feedback");
+      return;
+    }
+
+    setFeedbackSuccess("Feedback submitted. Thank you!");
+    setFeedbackComment("");
+    refreshTherapists();
+  };
 
   return (
     <DashboardLayout>
@@ -249,28 +388,22 @@ export default function FindProfessionals() {
       {/* Child Selection */}
       <div className="mb-6">
         <label className="text-sm font-medium mb-2 block">Select Child</label>
-        {loadingChildren ? (
-          <div className="w-full max-w-xs h-10 bg-muted animate-pulse rounded-lg" />
-        ) : children.length === 0 ? (
-          <div className="text-sm text-muted-foreground">No children found. Please add a child first.</div>
-        ) : (
-          <Select value={selectedChildId || ""} onValueChange={handleChildChange}>
-            <SelectTrigger className="w-full max-w-xs">
-              <SelectValue placeholder="Select a child" />
-            </SelectTrigger>
-            <SelectContent>
-              {children.map((child) => (
-                <SelectItem key={child.id} value={child.id}>
-                  {child.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
+        <Select value={selectedChild} onValueChange={setSelectedChild}>
+          <SelectTrigger className="w-full max-w-xs">
+            <SelectValue placeholder="Select a child" />
+          </SelectTrigger>
+          <SelectContent>
+            {children.map((child) => (
+              <SelectItem key={child.id} value={child.id}>
+                {child.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Child Status Display */}
-      {currentChild && (
+      {child && (
         <div className={`mb-6 rounded-xl border p-4 ${
           isDiagnosed 
             ? "border-success/30 bg-success/5" 
@@ -292,7 +425,7 @@ export default function FindProfessionals() {
                 <AlertCircle className="h-5 w-5 text-warning" />
                 <div>
                   <p className="font-medium text-sm">
-                    {currentChild.screeningStatus === "under-observation" 
+                    {child.screeningStatus === "under-observation" 
                       ? "Child Under Observation" 
                       : "Diagnosis Pending"}
                   </p>
@@ -306,17 +439,48 @@ export default function FindProfessionals() {
         </div>
       )}
 
+      {loadError && (
+        <div className="mb-6 rounded-2xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+          {loadError}
+        </div>
+      )}
+
+      {assignError && (
+        <div className="mb-6 rounded-2xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+          {assignError}
+        </div>
+      )}
+
       {/* Search Bar */}
       <div className="mb-6 flex gap-4">
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search by doctor id or name..."
+            placeholder="Search by name or specialization..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-10"
           />
         </div>
+        <Select value={selectedState} onValueChange={setSelectedState}>
+          <SelectTrigger className="w-[220px]">
+            <SelectValue placeholder="All States" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All States</SelectItem>
+            {indiaStates.map((state) => (
+              <SelectItem key={state} value={state}>
+                {state}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Input
+          placeholder="District"
+          value={districtQuery}
+          onChange={(e) => setDistrictQuery(e.target.value)}
+          className="w-[200px]"
+        />
         {isLoaded ? (
           <LocationSearch 
             onSelectLocation={(lat, lng, address) => setLocation({ lat, lng, address })} 
@@ -357,19 +521,81 @@ export default function FindProfessionals() {
         </TabsList>
 
         <TabsContent value="doctors" className="space-y-4">
-          {doctorError && (
-            <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
-              {doctorError}
-            </div>
-          )}
-
           {loadingDoctors && (
-            <div className="rounded-xl border bg-muted/40 p-4 text-sm text-muted-foreground">
+            <div className="rounded-2xl border border-border bg-card p-6 text-sm text-muted-foreground">
               Loading doctors...
             </div>
           )}
+          
+          {/* Show only assigned doctor when one is selected */}
+          {!loadingDoctors && selectedDoctor && !showChangeDoctorModal && (() => {
+            const assignedDoctor = doctors.find(d => d.id === selectedDoctor);
+            if (!assignedDoctor) return null;
+            
+            return (
+              <div className="space-y-4">
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="rounded-2xl border border-primary ring-2 ring-primary/20 bg-card p-6 shadow-card"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex gap-4">
+                      <div className="h-14 w-14 rounded-xl bg-primary/10 flex items-center justify-center">
+                        <Stethoscope className="h-7 w-7 text-primary" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-lg">{assignedDoctor.name}</h3>
+                        <p className="text-sm text-muted-foreground">{assignedDoctor.qualification}</p>
+                        <p className="text-sm text-primary mt-1">{assignedDoctor.specialization}</p>
+                        
+                        <div className="flex items-center gap-4 mt-3">
+                          <div className="flex items-center gap-1">
+                            <Star className="h-4 w-4 text-warning fill-warning" />
+                            <span className="text-sm font-medium">{assignedDoctor.rating || "-"}</span>
+                            <span className="text-xs text-muted-foreground">
+                              ({assignedDoctor.reviews} reviews)
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1 text-muted-foreground">
+                            <MapPin className="h-4 w-4" />
+                            <span className="text-xs">{assignedDoctor.location}</span>
+                          </div>
+                          <div className="flex items-center gap-2 px-2 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium">
+                            <span>{assignedDoctor.patientCount || 0}/5 Patients</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
 
-          {filteredDoctors.map((doctor, index) => (
+                    <div className="flex items-center gap-2 text-success">
+                      <CheckCircle2 className="h-5 w-5" />
+                      <span className="text-sm font-medium">Selected</span>
+                    </div>
+                  </div>
+                </motion.div>
+
+                <div className="flex justify-center">
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowChangeDoctorModal(true)}
+                    className="gap-2"
+                  >
+                    <Stethoscope className="h-4 w-4" />
+                    Change Doctor
+                  </Button>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Show full list when no doctor is selected or in change modal */}
+          {!loadingDoctors && !selectedDoctor && filteredDoctors.length === 0 && (
+            <div className="rounded-2xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+              No doctors match the selected filters.
+            </div>
+          )}
+          {!loadingDoctors && !selectedDoctor && filteredDoctors.map((doctor, index) => (
             <motion.div
               key={doctor.id}
               initial={{ opacity: 0, y: 20 }}
@@ -388,24 +614,33 @@ export default function FindProfessionals() {
                   </div>
                   <div>
                     <h3 className="font-semibold text-lg">{doctor.name}</h3>
-                    <p className="text-sm text-muted-foreground">Doctor ID: {doctor.id}</p>
-                    <p className="text-sm text-primary mt-1">
-                      Assigned: {doctor.assigned_patients}/{doctor.max_patients}
-                    </p>
+                    <p className="text-sm text-muted-foreground">{doctor.qualification}</p>
+                    <p className="text-sm text-primary mt-1">{doctor.specialization}</p>
                     
                     <div className="flex items-center gap-4 mt-3">
-                      <div className="flex items-center gap-1 text-muted-foreground">
-                        <span className="text-xs">
-                          {doctor.max_patients - doctor.assigned_patients} slot(s) left
+                      <div className="flex items-center gap-1">
+                        <Star className="h-4 w-4 text-warning fill-warning" />
+                        <span className="text-sm font-medium">{doctor.rating || "-"}</span>
+                        <span className="text-xs text-muted-foreground">
+                          ({doctor.reviews} reviews)
                         </span>
                       </div>
-                    </div>
+                      <div className="flex items-center gap-1 text-muted-foreground">
+                        <MapPin className="h-4 w-4" />
+                        <span className="text-xs">{doctor.location}</span>
+                      </div>                    <div className="flex items-center gap-2 px-2 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium">
+                      <span>{doctor.patientCount || 0}/5 Patients</span>
+                    </div>                    </div>
                   </div>
                 </div>
 
                 <div className="text-right">
-                  {!doctor.available && selectedDoctor !== doctor.id ? (
-                    <span className="text-xs bg-muted px-2 py-1 rounded-full text-muted-foreground">
+                  {!doctor.canAcceptPatients ? (
+                    <span className="text-xs bg-destructive/20 px-3 py-2 rounded-full text-destructive font-medium">
+                      At Capacity
+                    </span>
+                  ) : !doctor.available ? (
+                    <span className="text-xs bg-muted px-3 py-2 rounded-full text-muted-foreground">
                       Unavailable
                     </span>
                   ) : selectedDoctor === doctor.id ? (
@@ -418,7 +653,6 @@ export default function FindProfessionals() {
                       variant="outline"
                       size="sm"
                       onClick={() => handleSelectDoctor(doctor.id)}
-                      disabled={!doctor.available}
                     >
                       Select Doctor
                     </Button>
@@ -427,6 +661,64 @@ export default function FindProfessionals() {
               </div>
             </motion.div>
           ))}
+
+          {/* Doctor Feedback Section */}
+          {child?.assignedDoctorId && selectedDoctor && (
+            <div className="mt-6 rounded-2xl border border-primary/30 bg-primary/5 p-6">
+              <h3 className="font-semibold mb-2 flex items-center gap-2">
+                <Stethoscope className="h-5 w-5 text-primary" />
+                Doctor Feedback
+              </h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Share feedback for {assignedDoctor?.name || "your doctor"} to help improve care quality.
+              </p>
+
+              <div className="grid gap-4 md:grid-cols-[200px_1fr]">
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Rating</label>
+                  <Select value={feedbackRating} onValueChange={setFeedbackRating}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {["5", "4", "3", "2", "1"].map((value) => (
+                        <SelectItem key={value} value={value}>
+                          {value} Star{value === "1" ? "" : "s"}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Comment (optional)</label>
+                  <Textarea
+                    value={feedbackComment}
+                    onChange={(event) => setFeedbackComment(event.target.value)}
+                    placeholder="Share what went well and what could improve"
+                    className="min-h-[90px]"
+                  />
+                </div>
+              </div>
+
+              {feedbackError && (
+                <div className="mt-4 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+                  {feedbackError}
+                </div>
+              )}
+
+              {feedbackSuccess && (
+                <div className="mt-4 rounded-lg border border-success/30 bg-success/10 p-3 text-sm text-success">
+                  {feedbackSuccess}
+                </div>
+              )}
+
+              <div className="mt-4 flex justify-end">
+                <Button onClick={handleSubmitFeedback}>
+                  Submit Feedback
+                </Button>
+              </div>
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="therapists" className="space-y-4">
@@ -446,18 +738,93 @@ export default function FindProfessionals() {
             </motion.div>
           )}
 
-          {filteredTherapists.map((therapist, index) => (
+          {loadingTherapists && (
+            <div className="rounded-2xl border border-border bg-card p-6 text-sm text-muted-foreground">
+              Loading therapists...
+            </div>
+          )}
+
+          {/* Show only assigned therapist when one is selected */}
+          {!loadingTherapists && isDiagnosed && selectedTherapist && !showChangeTherapistModal && (() => {
+            const assignedTherapist = therapists.find(t => t.id === selectedTherapist);
+            if (!assignedTherapist) return null;
+            
+            return (
+              <div className="space-y-4">
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="rounded-2xl border border-secondary ring-2 ring-secondary/20 bg-card p-6 shadow-card"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex gap-4">
+                      <div className="h-14 w-14 rounded-xl bg-secondary/10 flex items-center justify-center">
+                        <HeartPulse className="h-7 w-7 text-secondary" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-lg">{assignedTherapist.name}</h3>
+                        <p className="text-sm text-muted-foreground">{assignedTherapist.qualification}</p>
+                        <p className="text-sm text-secondary mt-1">{assignedTherapist.specialization}</p>
+                        
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {assignedTherapist.therapyTypes.map((type) => (
+                            <span
+                              key={type}
+                              className="text-xs bg-secondary/10 text-secondary px-2 py-0.5 rounded-full"
+                            >
+                              {type}
+                            </span>
+                          ))}
+                        </div>
+                        
+                        <div className="flex items-center gap-4 mt-3">
+                          <div className="flex items-center gap-1">
+                            <Star className="h-4 w-4 text-warning fill-warning" />
+                            <span className="text-sm font-medium">{assignedTherapist.rating || "-"}</span>
+                            <span className="text-xs text-muted-foreground">
+                              ({assignedTherapist.reviews} reviews)
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1 text-muted-foreground">
+                            <MapPin className="h-4 w-4" />
+                            <span className="text-xs">{assignedTherapist.location}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 text-secondary">
+                      <CheckCircle2 className="h-5 w-5" />
+                      <span className="text-sm font-medium">Selected</span>
+                    </div>
+                  </div>
+                </motion.div>
+
+                <div className="flex justify-center">
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowChangeTherapistModal(true)}
+                    className="gap-2 border-secondary text-secondary hover:bg-secondary/10"
+                  >
+                    <HeartPulse className="h-4 w-4" />
+                    Change Therapist
+                  </Button>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Show full list when no therapist is selected or in change modal */}
+          {!loadingTherapists && isDiagnosed && !selectedTherapist && filteredTherapists.map((therapist, index) => (
             <motion.div
               key={therapist.id}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.05 }}
               className={`rounded-2xl border bg-card p-6 shadow-card transition-all ${
-                !isDiagnosed 
-                  ? "opacity-50 cursor-not-allowed" 
-                  : selectedTherapist === therapist.id
-                    ? "border-secondary ring-2 ring-secondary/20"
-                    : "border-border hover:border-secondary/50"
+                selectedTherapist === therapist.id
+                  ? "border-secondary ring-2 ring-secondary/20"
+                  : "border-border hover:border-secondary/50"
               }`}
             >
               <div className="flex items-start justify-between">
@@ -484,7 +851,7 @@ export default function FindProfessionals() {
                     <div className="flex items-center gap-4 mt-3">
                       <div className="flex items-center gap-1">
                         <Star className="h-4 w-4 text-warning fill-warning" />
-                        <span className="text-sm font-medium">{therapist.rating}</span>
+                        <span className="text-sm font-medium">{therapist.rating || "-"}</span>
                         <span className="text-xs text-muted-foreground">
                           ({therapist.reviews} reviews)
                         </span>
@@ -498,12 +865,7 @@ export default function FindProfessionals() {
                 </div>
 
                 <div className="text-right">
-                  {!isDiagnosed ? (
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Lock className="h-4 w-4" />
-                      <span className="text-xs">Locked</span>
-                    </div>
-                  ) : selectedTherapist === therapist.id ? (
+                  {selectedTherapist === therapist.id ? (
                     <div className="flex items-center gap-2 text-secondary">
                       <CheckCircle2 className="h-5 w-5" />
                       <span className="text-sm font-medium">Selected</span>
@@ -522,6 +884,64 @@ export default function FindProfessionals() {
               </div>
             </motion.div>
           ))}
+
+          {/* Therapist Feedback Section */}
+          {child?.assignedTherapistId && isDiagnosed && selectedTherapist && (
+            <div className="mt-6 rounded-2xl border border-secondary/30 bg-secondary/5 p-6">
+              <h3 className="font-semibold mb-2 flex items-center gap-2">
+                <HeartPulse className="h-5 w-5 text-secondary" />
+                Therapist Feedback
+              </h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Share feedback for {assignedTherapist?.name || "your therapist"} to help improve care quality.
+              </p>
+
+              <div className="grid gap-4 md:grid-cols-[200px_1fr]">
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Rating</label>
+                  <Select value={feedbackRating} onValueChange={setFeedbackRating}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {["5", "4", "3", "2", "1"].map((value) => (
+                        <SelectItem key={value} value={value}>
+                          {value} Star{value === "1" ? "" : "s"}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Comment (optional)</label>
+                  <Textarea
+                    value={feedbackComment}
+                    onChange={(event) => setFeedbackComment(event.target.value)}
+                    placeholder="Share what went well and what could improve"
+                    className="min-h-[90px]"
+                  />
+                </div>
+              </div>
+
+              {feedbackError && (
+                <div className="mt-4 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+                  {feedbackError}
+                </div>
+              )}
+
+              {feedbackSuccess && (
+                <div className="mt-4 rounded-lg border border-success/30 bg-success/10 p-3 text-sm text-success">
+                  {feedbackSuccess}
+                </div>
+              )}
+
+              <div className="mt-4 flex justify-end">
+                <Button onClick={handleSubmitFeedback}>
+                  Submit Feedback
+                </Button>
+              </div>
+            </div>
+          )}
         </TabsContent>
       </Tabs>
 
@@ -532,6 +952,193 @@ export default function FindProfessionals() {
           to provide appropriate care and recommendations.
         </p>
       </div>
+
+      {/* Change Doctor Modal */}
+      <Dialog open={showChangeDoctorModal} onOpenChange={setShowChangeDoctorModal}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Stethoscope className="h-5 w-5 text-primary" />
+              Change Doctor
+            </DialogTitle>
+            <DialogDescription>
+              Select a new doctor to assign to your child. They will have access to screening data and reports.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 mt-4">
+            {assignError && (
+              <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+                {assignError}
+              </div>
+            )}
+
+            {loadingDoctors && (
+              <div className="text-center py-8 text-muted-foreground">
+                Loading available doctors...
+              </div>
+            )}
+
+            {!loadingDoctors && filteredDoctors.length === 0 && (
+              <div className="text-center py-8">
+                <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+                <p className="text-muted-foreground">No doctors available</p>
+              </div>
+            )}
+
+            {!loadingDoctors && filteredDoctors.length > 0 && (
+              <div className="space-y-3">
+                {filteredDoctors.map((doctor) => (
+                  <motion.div
+                    key={doctor.id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className={`rounded-xl border bg-card p-4 transition-all hover:border-primary/50 cursor-pointer ${
+                      selectedDoctor === doctor.id ? 'border-primary ring-2 ring-primary/20' : ''
+                    } ${!doctor.canAcceptPatients ? 'opacity-50' : ''}`}
+                    onClick={() => {
+                      if (doctor.canAcceptPatients) {
+                        handleSelectDoctor(doctor.id);
+                        setShowChangeDoctorModal(false);
+                      }
+                    }}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex gap-3">
+                        <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                          <Stethoscope className="h-6 w-6 text-primary" />
+                        </div>
+                        <div>
+                          <h4 className="font-semibold">{doctor.name}</h4>
+                          <p className="text-sm text-primary mt-0.5">
+                            {doctor.specialization}
+                          </p>
+                          <div className="flex items-center gap-3 mt-2 text-sm text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              <MapPin className="h-3 w-3" />
+                              {doctor.location}
+                            </span>
+                            <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-medium">
+                              {doctor.patientCount || 0}/5 Patients
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <div>
+                        {!doctor.canAcceptPatients ? (
+                          <span className="text-xs bg-destructive/20 px-3 py-1.5 rounded-full text-destructive font-medium">
+                            At Capacity
+                          </span>
+                        ) : selectedDoctor === doctor.id ? (
+                          <div className="flex items-center gap-2 text-success">
+                            <CheckCircle2 className="h-5 w-5" />
+                          </div>
+                        ) : (
+                          <Button size="sm" variant="outline">
+                            Select
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Change Therapist Modal */}
+      <Dialog open={showChangeTherapistModal} onOpenChange={setShowChangeTherapistModal}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <HeartPulse className="h-5 w-5 text-secondary" />
+              Change Therapist
+            </DialogTitle>
+            <DialogDescription>
+              Select a new therapist to assign to your child. They will provide therapy sessions and support.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 mt-4">
+            {assignError && (
+              <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+                {assignError}
+              </div>
+            )}
+
+            {loadingTherapists && (
+              <div className="text-center py-8 text-muted-foreground">
+                Loading available therapists...
+              </div>
+            )}
+
+            {!loadingTherapists && filteredTherapists.length === 0 && (
+              <div className="text-center py-8">
+                <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+                <p className="text-muted-foreground">No therapists available</p>
+              </div>
+            )}
+
+            {!loadingTherapists && filteredTherapists.length > 0 && (
+              <div className="space-y-3">
+                {filteredTherapists.map((therapist) => (
+                  <motion.div
+                    key={therapist.id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className={`rounded-xl border bg-card p-4 transition-all hover:border-secondary/50 cursor-pointer ${
+                      selectedTherapist === therapist.id ? 'border-secondary ring-2 ring-secondary/20' : ''
+                    }`}
+                    onClick={() => {
+                      if (isDiagnosed) {
+                        handleSelectTherapist(therapist.id);
+                        setShowChangeTherapistModal(false);
+                      }
+                    }}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex gap-3">
+                        <div className="h-12 w-12 rounded-xl bg-secondary/10 flex items-center justify-center">
+                          <HeartPulse className="h-6 w-6 text-secondary" />
+                        </div>
+                        <div>
+                          <h4 className="font-semibold">{therapist.name}</h4>
+                          <p className="text-sm text-secondary mt-0.5">
+                            {therapist.specialization}
+                          </p>
+                          <div className="flex items-center gap-3 mt-2 text-sm text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              <MapPin className="h-3 w-3" />
+                              {therapist.location}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Star className="h-3 w-3 text-warning fill-warning" />
+                              {therapist.rating || "-"} ({therapist.reviews})
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <div>
+                        {selectedTherapist === therapist.id ? (
+                          <div className="flex items-center gap-2 text-secondary">
+                            <CheckCircle2 className="h-5 w-5" />
+                          </div>
+                        ) : (
+                          <Button size="sm" variant="outline" className="border-secondary text-secondary">
+                            Select
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 }

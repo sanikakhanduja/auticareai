@@ -21,7 +21,7 @@ import { AgentPanel, AgentBadge } from "@/components/AgentBadge";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Child } from "@/lib/store";
 import { authService } from "@/services/auth";
-import { childrenService, reportsService } from "@/services/data";
+import { childrenService, profilesService, reportsService } from "@/services/data";
 import { cvService, CvReport } from "@/services/cv";
 import {
   Dialog,
@@ -133,6 +133,7 @@ export default function DoctorReview() {
   const [childError, setChildError] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [reportError, setReportError] = useState<string | null>(null);
+  const [assignedTherapist, setAssignedTherapist] = useState<{ name: string; specialty?: string | null } | null>(null);
 
   useEffect(() => {
     const loadChild = async () => {
@@ -178,6 +179,28 @@ export default function DoctorReview() {
 
     loadUser();
   }, []);
+
+  useEffect(() => {
+    const loadAssignedTherapist = async () => {
+      if (!child?.assignedTherapistId) {
+        setAssignedTherapist(null);
+        return;
+      }
+
+      const { data, error } = await profilesService.getProfileById(child.assignedTherapistId);
+      if (error || !data) {
+        setAssignedTherapist(null);
+        return;
+      }
+
+      setAssignedTherapist({
+        name: data.full_name || "Therapist",
+        specialty: data.specialty,
+      });
+    };
+
+    loadAssignedTherapist();
+  }, [child?.assignedTherapistId]);
 
   useEffect(() => {
     const fetchReport = async () => {
@@ -299,7 +322,6 @@ export default function DoctorReview() {
 
     const { error: updateError } = await childrenService.updateChild(child.id, {
       screeningStatus: "diagnosed",
-      assignedTherapistId: "ther1",
     });
 
     if (updateError) {
@@ -310,7 +332,6 @@ export default function DoctorReview() {
     setChild({
       ...child,
       screeningStatus: "diagnosed",
-      assignedTherapistId: "ther1",
     });
     
     setShowReportDialog(false);
@@ -358,6 +379,12 @@ export default function DoctorReview() {
                   </span>
                   {child.riskLevel && <StatusBadge riskLevel={child.riskLevel} />}
                 </div>
+                {assignedTherapist && (
+                  <div className="mt-2 text-sm text-muted-foreground">
+                    Therapist: {assignedTherapist.name}
+                    {assignedTherapist.specialty ? ` • ${assignedTherapist.specialty}` : ""}
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -400,7 +427,19 @@ export default function DoctorReview() {
             </AgentPanel>
           )}
 
-          {cvReportError && (
+          {!cvReport && !cvReportError && (
+            <div className="rounded-2xl border border-border bg-muted/30 p-6">
+              <div className="flex items-center gap-3 text-muted-foreground">
+                <AlertCircle className="h-5 w-5" />
+                <div>
+                  <p className="font-medium">No Video Screening Available</p>
+                  <p className="text-sm mt-1">The parent hasn't uploaded a screening video yet. You can still proceed with clinical assessment based on other observations.</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {cvReportError && cvReportError !== "No screening results found" && (
             <div className="rounded-2xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
               {cvReportError}
             </div>
@@ -602,8 +641,8 @@ export default function DoctorReview() {
                 </p>
                 <ul className="text-sm mt-2 space-y-1">
                   <li>• Generate a comprehensive Diagnostic Report</li>
-                  <li>• Share the report with the assigned Therapist</li>
-                  <li>• Initiate Therapy Planning</li>
+                  <li>• Notify the parent to select a therapist</li>
+                  <li>• Enable therapy planning after assignment</li>
                 </ul>
               </div>
 
@@ -650,13 +689,13 @@ export default function DoctorReview() {
                   <CheckCircle2 className="h-12 w-12 text-success mx-auto mb-4" />
                   <h3 className="text-xl font-semibold mb-2">Diagnostic Report Generated</h3>
                   <p className="text-muted-foreground mb-4">
-                    Diagnostic report has been generated and shared with the therapist.
-                    Therapy planning has been initiated.
+                    Diagnostic report has been generated. The parent can now assign a therapist.
+                    Therapy planning begins after assignment.
                   </p>
                   <div className="bg-card rounded-lg p-4 text-left max-w-md mx-auto">
                     <p className="text-sm font-medium mb-1">Status: Diagnosis Complete</p>
                     <p className="text-xs text-muted-foreground">
-                      Therapist has been notified and can now create therapy sessions.
+                      Awaiting therapist assignment by the parent.
                     </p>
                   </div>
                 </>

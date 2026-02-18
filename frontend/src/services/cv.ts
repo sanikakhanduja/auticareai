@@ -24,8 +24,16 @@ export const cvService = {
     });
 
     if (!response.ok) {
-      const message = await response.text();
-      throw new Error(message || 'Failed to process video');
+      try {
+        const errorData = await response.json();
+        throw new Error(errorData.error || errorData.message || 'Failed to process video');
+      } catch (e) {
+        if (e instanceof Error && e.message !== 'Failed to process video') {
+          throw e;
+        }
+        const message = await response.text();
+        throw new Error(message || 'Failed to process video');
+      }
     }
 
     return response.json();
@@ -44,8 +52,15 @@ export const cvService = {
     });
 
     if (!response.ok) {
-      const message = await response.text();
-      throw new Error(message || 'Failed to save screening report');
+      try {
+        const errorData = await response.json();
+        throw new Error(errorData.error || errorData.message || 'Failed to save screening report');
+      } catch (e) {
+        if (e instanceof Error && e.message !== 'Failed to save screening report') {
+          throw e;
+        }
+        throw new Error('Failed to save screening report');
+      }
     }
 
     return response.json();
@@ -54,8 +69,15 @@ export const cvService = {
   async getLatestReport(childId: string) {
     const response = await fetch(`${backendUrl}/api/screening/results/${childId}`);
     if (!response.ok) {
-      const message = await response.text();
-      throw new Error(message || 'Failed to fetch screening report');
+      try {
+        const errorData = await response.json();
+        throw new Error(errorData.error || errorData.message || 'Failed to fetch screening report');
+      } catch (e) {
+        if (e instanceof Error && e.message !== 'Failed to fetch screening report') {
+          throw e;
+        }
+        throw new Error('Failed to fetch screening report');
+      }
     }
     return response.json();
   },

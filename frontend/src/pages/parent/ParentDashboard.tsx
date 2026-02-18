@@ -9,13 +9,17 @@ import {
   Plus,
   ArrowRight,
   Bot,
+  Bell,
+  Video,
+  Clock,
 } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { ChildCard } from "@/components/ChildCard";
 import { AgentBadge } from "@/components/AgentBadge";
 import { Child, useAppStore } from "@/lib/store";
-import { childrenService } from "@/services/data";
+import { authService } from "@/services/auth";
+import { childProgressFeedbackService, childrenService, therapySessionsService, notificationsService } from "@/services/data";
 
 export default function ParentDashboard() {
   const navigate = useNavigate();
@@ -23,6 +27,18 @@ export default function ParentDashboard() {
   const [children, setChildren] = useState<Child[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [sessions, setSessions] = useState<any[]>([]);
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [progressFeedbacks, setProgressFeedbacks] = useState<any[]>([]);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const loadUser = async () => {
+      const user = await authService.getCurrentUser();
+      setCurrentUserId(user?.id || null);
+    };
+    loadUser();
+  }, []);
 
   useEffect(() => {
     const loadChildren = async () => {
@@ -55,6 +71,38 @@ export default function ParentDashboard() {
     loadChildren();
   }, []);
 
+  useEffect(() => {
+    const loadSessionsAndNotifications = async () => {
+      if (!currentUserId) return;
+
+      // Load sessions for all children
+      const childIds = children.map(c => c.id);
+      const allSessions: any[] = [];
+      
+      for (const childId of childIds) {
+        const { data } = await therapySessionsService.getSessionsForChild(childId);
+        if (data) {
+          allSessions.push(...data);
+        }
+      }
+      setSessions(allSessions);
+
+      // Load notifications
+      const { data: notifData } = await notificationsService.getUnreadNotifications(currentUserId);
+      if (notifData) {
+        setNotifications(notifData);
+      }
+
+      // Load therapist progress feedback
+      const { data: feedbackData } = await childProgressFeedbackService.getFeedbackForParent(currentUserId);
+      if (feedbackData) {
+        setProgressFeedbacks(feedbackData);
+      }
+    };
+
+    loadSessionsAndNotifications();
+  }, [currentUserId, children]);
+
   const mappedChildren = useMemo(() => {
     return children.map((child) => {
       const dob = new Date(child.dateOfBirth);
@@ -63,6 +111,14 @@ export default function ParentDashboard() {
         : Math.max(0, Math.floor((Date.now() - dob.getTime()) / (365.25 * 24 * 60 * 60 * 1000)));
       return { ...child, age };
     });
+  }, [children]);
+
+  const childNameById = useMemo(() => {
+    const map: Record<string, string> = {};
+    children.forEach((child) => {
+      map[child.id] = child.name;
+    });
+    return map;
   }, [children]);
 
   const quickActions = [
@@ -152,6 +208,140 @@ export default function ParentDashboard() {
           ))}
         </div>
       </div>
+
+      {/* Notifications Section */}
+      {notifications.length > 0 && (
+        <div className="mb-8">
+          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+            <Bell className="h-5 w-5" />
+            Notifications
+          </h2>
+          <div className="space-y-3">
+            {notifications.slice(0, 3).map((notification, index) => (
+              <motion.div
+                key={notification.id}
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: index * 0.1 }}
+                className="rounded-xl border border-primary/30 bg-primary/5 p-4 cursor-pointer hover:bg-primary/10 transition-colors"
+                onClick={async () => {
+                  await notificationsService.markAsRead(notification.id);
+                  setNotifications(prev => prev.filter(n => n.id !== notification.id));
+                  if (notification.link) {
+                    navigate(notification.link);
+                  }
+                }}
+              >
+                <div className="flex items-start gap-3">
+                  <Bell className="h-5 w-5 text-primary mt-0.5" />
+                  <div className="flex-1">
+                    <h4 className="font-semibold text-sm">{notification.title}</h4>
+                    <p className="text-sm text-muted-foreground mt-1">{notification.message}</p>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      {new Date(notification.created_at).toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Session Feedback Section */}
+      {progressFeedbacks.length > 0 && (
+        <div className="mb-8">
+          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+            <TrendingUp className="h-5 w-5" />
+            Session Feedback
+          </h2>
+          <div className="space-y-3">
+            {progressFeedbacks.slice(0, 3).map((feedback, index) => (
+              <motion.div
+                key={feedback.id}
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: index * 0.1 }}
+                className="rounded-xl border border-border bg-card p-4"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="font-medium">
+                      {childNameById[feedback.child_id] || "Child"}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {new Date(feedback.created_at).toLocaleDateString()}
+                    </p>
+                    <p className="text-sm text-muted-foreground mt-2">
+                      {feedback.progress_text}
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => navigate(`/parent/children/${feedback.child_id}`)}
+                  >
+                    View Child
+                  </Button>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Upcoming Sessions Section */}
+      {sessions.length > 0 && (
+        <div className="mb-8">
+          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+            <Video className="h-5 w-5" />
+            Upcoming Therapy Sessions
+          </h2>
+          <div className="space-y-3">
+            {sessions
+              .filter(s => s.status === 'scheduled' && new Date(s.scheduled_date) >= new Date())
+              .sort((a, b) => new Date(a.scheduled_date).getTime() - new Date(b.scheduled_date).getTime())
+              .slice(0, 3)
+              .map((session, index) => {
+                const child = mappedChildren.find(c => c.id === session.child_id);
+                return (
+                  <motion.div
+                    key={session.id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.1 }}
+                    className="rounded-xl border border-border bg-card p-4"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex gap-3">
+                        <div className="h-10 w-10 rounded-lg bg-secondary/10 flex items-center justify-center">
+                          <Video className="h-5 w-5 text-secondary" />
+                        </div>
+                        <div>
+                          <h4 className="font-semibold">{child?.name || 'Unknown Child'}</h4>
+                          <p className="text-sm text-secondary capitalize mt-0.5">{session.type} Therapy</p>
+                          <div className="flex items-center gap-3 mt-2 text-sm text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              <Calendar className="h-3 w-3" />
+                              {new Date(session.scheduled_date).toLocaleDateString()}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              {session.scheduled_time}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <span className="text-xs bg-secondary/10 text-secondary px-3 py-1 rounded-full font-medium">
+                        Scheduled
+                      </span>
+                    </div>
+                  </motion.div>
+                );
+              })}
+          </div>
+        </div>
+      )}
 
       {/* Children */}
       <div>

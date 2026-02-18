@@ -20,6 +20,8 @@ export interface Child {
   assignedDoctorId?: string;
   assignedTherapistId?: string;
   observationEndDate?: string;
+  parentId?: string;
+  isActive?: boolean;
 }
 
 export interface ScreeningResult {

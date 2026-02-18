@@ -1,12 +1,20 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Bot, Users, Stethoscope, HeartPulse, Mail, Lock, User, ArrowRight } from "lucide-react";
+import { Bot, Users, Stethoscope, HeartPulse, Mail, Lock, User, ArrowRight, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { RoleCard } from "@/components/RoleCard";
 import { useAppStore, UserRole } from "@/lib/store";
 import { authService } from "@/services/auth";
+import { profilesService } from "@/services/data";
 
 type AuthStep = "role" | "form";
 
@@ -14,10 +22,14 @@ export default function Auth() {
   const [step, setStep] = useState<AuthStep>("role");
   const [selectedRole, setSelectedRole] = useState<UserRole | null>(null);
   const [isSignUp, setIsSignUp] = useState(true);
+  const [requiresDoctorLocation, setRequiresDoctorLocation] = useState(false);
+  const [pendingDoctorId, setPendingDoctorId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     password: "",
+    state: "",
+    district: "",
   });
   const navigate = useNavigate();
   const { setCurrentUser } = useAppStore();
@@ -43,6 +55,45 @@ export default function Auth() {
     },
   ];
 
+  const indiaStates = [
+    "Andaman and Nicobar Islands",
+    "Andhra Pradesh",
+    "Arunachal Pradesh",
+    "Assam",
+    "Bihar",
+    "Chandigarh",
+    "Chhattisgarh",
+    "Dadra and Nagar Haveli and Daman and Diu",
+    "Delhi",
+    "Goa",
+    "Gujarat",
+    "Haryana",
+    "Himachal Pradesh",
+    "Jammu and Kashmir",
+    "Jharkhand",
+    "Karnataka",
+    "Kerala",
+    "Ladakh",
+    "Lakshadweep",
+    "Madhya Pradesh",
+    "Maharashtra",
+    "Manipur",
+    "Meghalaya",
+    "Mizoram",
+    "Nagaland",
+    "Odisha",
+    "Puducherry",
+    "Punjab",
+    "Rajasthan",
+    "Sikkim",
+    "Tamil Nadu",
+    "Telangana",
+    "Tripura",
+    "Uttar Pradesh",
+    "Uttarakhand",
+    "West Bengal",
+  ];
+
   const handleRoleSelect = (role: UserRole) => {
     setSelectedRole(role);
   };
@@ -57,13 +108,48 @@ export default function Auth() {
     e.preventDefault();
     if (!selectedRole && isSignUp) return; // Role is required for signup
 
+    if (requiresDoctorLocation && pendingDoctorId) {
+      if (!formData.state || !formData.district) {
+        alert("Please select a state and enter a district.");
+        return;
+      }
+
+      const { error } = await profilesService.updateLocation(pendingDoctorId, {
+        state: formData.state,
+        district: formData.district,
+      });
+
+      if (error) {
+        alert(error.message || "Failed to update location");
+        return;
+      }
+
+      setRequiresDoctorLocation(false);
+      setPendingDoctorId(null);
+      navigate("/doctor");
+      return;
+    }
+
+    if (isSignUp && selectedRole === "doctor") {
+      if (!formData.state || !formData.district) {
+        alert("Please select a state and enter a district.");
+        return;
+      }
+    }
+
     try {
       if (isSignUp) {
         const { data, error } = await authService.signUp(
           formData.email,
           formData.password,
           formData.name,
-          selectedRole as UserRole
+          selectedRole as UserRole,
+          selectedRole === "doctor"
+            ? {
+                state: formData.state,
+                district: formData.district,
+              }
+            : undefined
         );
 
         if (error) {
@@ -103,6 +189,13 @@ export default function Auth() {
 
         const profile = await authService.getCurrentUser();
         const role = profile?.profile?.role || "parent";
+
+        if (role === "doctor" && (!profile?.profile?.state || !profile?.profile?.district)) {
+          setSelectedRole("doctor");
+          setRequiresDoctorLocation(true);
+          setPendingDoctorId(profile?.id || data.user?.id || null);
+          return;
+        }
 
         setCurrentUser({
           id: profile?.id || data.user?.id || "",
@@ -248,17 +341,23 @@ export default function Auth() {
               <div className="rounded-2xl border border-border bg-card p-8 shadow-elevated">
                 <div className="text-center mb-8">
                   <h2 className="text-2xl font-bold">
-                    {isSignUp ? "Create Account" : "Welcome Back"}
+                    {requiresDoctorLocation
+                      ? "Complete Doctor Profile"
+                      : isSignUp
+                        ? "Create Account"
+                        : "Welcome Back"}
                   </h2>
                   <p className="text-muted-foreground mt-2">
-                    {isSignUp
-                      ? "Enter your details to get started"
-                      : "Sign in to continue"}
+                    {requiresDoctorLocation
+                      ? "Add your state and district to appear in search"
+                      : isSignUp
+                        ? "Enter your details to get started"
+                        : "Sign in to continue"}
                   </p>
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
-                  {isSignUp && (
+                  {!requiresDoctorLocation && isSignUp && (
                     <div className="relative">
                       <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                       <Input
@@ -271,37 +370,81 @@ export default function Auth() {
                       />
                     </div>
                   )}
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                    <Input
-                      type="email"
-                      placeholder="Email Address"
-                      className="pl-10"
-                      value={formData.email}
-                      onChange={(e) =>
-                        setFormData({ ...formData, email: e.target.value })
-                      }
-                    />
-                  </div>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                    <Input
-                      type="password"
-                      placeholder="Password"
-                      className="pl-10"
-                      value={formData.password}
-                      onChange={(e) =>
-                        setFormData({ ...formData, password: e.target.value })
-                      }
-                    />
-                  </div>
+                  {!requiresDoctorLocation && (
+                    <>
+                      <div className="relative">
+                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                        <Input
+                          type="email"
+                          placeholder="Email Address"
+                          className="pl-10"
+                          value={formData.email}
+                          onChange={(e) =>
+                            setFormData({ ...formData, email: e.target.value })
+                          }
+                        />
+                      </div>
+                      <div className="relative">
+                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                        <Input
+                          type="password"
+                          placeholder="Password"
+                          className="pl-10"
+                          value={formData.password}
+                          onChange={(e) =>
+                            setFormData({ ...formData, password: e.target.value })
+                          }
+                        />
+                      </div>
+                    </>
+                  )}
+
+                  {(isSignUp && selectedRole === "doctor") || requiresDoctorLocation ? (
+                    <>
+                      <div>
+                        <Select
+                          value={formData.state}
+                          onValueChange={(value) =>
+                            setFormData({ ...formData, state: value })
+                          }
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select State" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {indiaStates.map((state) => (
+                              <SelectItem key={state} value={state}>
+                                {state}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="relative">
+                        <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                        <Input
+                          placeholder="District"
+                          className="pl-10"
+                          value={formData.district}
+                          onChange={(e) =>
+                            setFormData({ ...formData, district: e.target.value })
+                          }
+                        />
+                      </div>
+                    </>
+                  ) : null}
 
                   <Button type="submit" size="lg" variant="hero" className="w-full">
-                    {isSignUp ? "Create Account" : "Sign In"}
+                    {requiresDoctorLocation
+                      ? "Save Location"
+                      : isSignUp
+                        ? "Create Account"
+                        : "Sign In"}
                     <ArrowRight className="ml-2 h-5 w-5" />
                   </Button>
 
-                  <div className="relative my-4">
+                  {!requiresDoctorLocation && (
+                    <div className="relative my-4">
                     <div className="absolute inset-0 flex items-center">
                       <span className="w-full border-t" />
                     </div>
@@ -310,12 +453,15 @@ export default function Auth() {
                         Or continue with
                       </span>
                     </div>
-                  </div>
+                    </div>
+                  )}
 
-                  <Button variant="outline" type="button" className="w-full" onClick={() => window.location.href = 'http://localhost:3000/api/auth/google'}>
-                    <svg className="mr-2 h-4 w-4" aria-hidden="true" focusable="false" data-prefix="fab" data-icon="google" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 488 512"><path fill="currentColor" d="M488 261.8C488 403.3 391.1 504 248 504 110.8 504 0 393.2 0 256S110.8 8 248 8c66.8 0 123 24.5 166.3 64.9l-67.5 64.9C258.5 52.6 94.3 116.6 94.3 256c0 86.5 69.1 156.6 153.7 156.6 98.2 0 135-70.4 140.8-106.9H248v-85.3h236.1c2.3 12.7 3.9 24.9 3.9 41.4z"></path></svg>
-                    Google
-                  </Button>
+                  {!requiresDoctorLocation && (
+                    <Button variant="outline" type="button" className="w-full" onClick={() => window.location.href = 'http://localhost:3000/api/auth/google'}>
+                      <svg className="mr-2 h-4 w-4" aria-hidden="true" focusable="false" data-prefix="fab" data-icon="google" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 488 512"><path fill="currentColor" d="M488 261.8C488 403.3 391.1 504 248 504 110.8 504 0 393.2 0 256S110.8 8 248 8c66.8 0 123 24.5 166.3 64.9l-67.5 64.9C258.5 52.6 94.3 116.6 94.3 256c0 86.5 69.1 156.6 153.7 156.6 98.2 0 135-70.4 140.8-106.9H248v-85.3h236.1c2.3 12.7 3.9 24.9 3.9 41.4z"></path></svg>
+                      Google
+                    </Button>
+                  )}
                 </form>
               </div>
             </motion.div>

@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import dotenv from 'dotenv';
 import rateLimit from 'express-rate-limit';
 import authRoutes from './routes/auth';
+import doctorRoutes from './routes/doctors';
 import { supabase } from './config/supabase';
 import screeningRoutes from './routes/screening';
 import progressRoutes from './routes/progress';
@@ -45,6 +46,7 @@ app.use(limiter);
 
 // Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/doctors', doctorRoutes);
 app.use('/api/screening', screeningRoutes);
 app.use('/api/progress', progressRoutes);
 
