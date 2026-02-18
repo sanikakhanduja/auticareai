@@ -6,6 +6,7 @@ import rateLimit from 'express-rate-limit';
 import authRoutes from './routes/auth';
 import { supabase } from './config/supabase';
 import screeningRoutes from './routes/screening';
+import progressRoutes from './routes/progress';
 
 
 dotenv.config();
@@ -45,6 +46,7 @@ app.use(limiter);
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/screening', screeningRoutes);
+app.use('/api/progress', progressRoutes);
 
 
 // Health Check

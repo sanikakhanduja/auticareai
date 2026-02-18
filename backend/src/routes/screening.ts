@@ -32,7 +32,7 @@ router.post("/screen", upload.single("video"), async (req: Request, res: Respons
     if (!response.ok) {
       let errorMessage = `Python screening service error (${response.status})`;
       try {
-        const errorBody = await response.json();
+        const errorBody: any = await response.json();
         if (errorBody?.error) {
           errorMessage = errorBody.error;
         }

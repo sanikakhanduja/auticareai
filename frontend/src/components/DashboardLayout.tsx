@@ -1,5 +1,5 @@
 import { ReactNode } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   Home,
@@ -12,10 +12,12 @@ import {
   Stethoscope,
   HeartPulse,
   Bot,
+  Loader2,
 } from "lucide-react";
 import { useAppStore, UserRole } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { authService } from "@/services/auth";
 
 interface NavItem {
   label: string;
@@ -69,21 +71,32 @@ interface DashboardLayoutProps {
 }
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
-  const { currentUser, setCurrentUser } = useAppStore();
+  const { currentUser, authInitialized, setCurrentUser } = useAppStore();
   const location = useLocation();
   const navigate = useNavigate();
 
+  if (!authInitialized) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <Loader2 className="h-5 w-5 animate-spin" />
+          <span>Restoring your session...</span>
+        </div>
+      </div>
+    );
+  }
+
   if (!currentUser) {
-    navigate("/");
-    return null;
+    return <Navigate to="/auth" replace />;
   }
 
   const navItems = roleNavItems[currentUser.role];
   const RoleIcon = roleIcons[currentUser.role];
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await authService.signOut();
     setCurrentUser(null);
-    navigate("/");
+    navigate("/auth");
   };
 
   return (

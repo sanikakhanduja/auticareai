@@ -29,6 +29,7 @@ export interface ScreeningResult {
   timestamp: Date;
   videoFileName: string;
   questionnaireAnswers: Record<string, string>;
+  cvReport?: any;
 }
 
 export type ReportType = 'observation' | 'diagnostic';
@@ -47,6 +48,14 @@ export interface Report {
   diagnosisConfirmation?: string;
   developmentalGaps?: string[];
   therapyRecommendations?: string[];
+  // CV-enriched fields saved with doctor report
+  cvRiskLevel?: string;
+  cvRiskConfidence?: number;
+  cvRiskDescription?: string;
+  objectiveSignals?: Record<string, { value: number | null; baseline: number | null; status: string }>;
+  objectiveSignalValues?: Record<string, number>;
+  objectiveSignalBaselines?: Record<string, number>;
+  signalSummary?: string[];
 }
 
 export interface TherapySession {
@@ -63,11 +72,14 @@ export interface TherapySession {
 
 interface AppState {
   currentUser: User | null;
+  authInitialized: boolean;
   children: Child[];
   screeningResults: ScreeningResult[];
   reports: Report[];
   therapySessions: TherapySession[];
+  selectedChildId: string;
   setCurrentUser: (user: User | null) => void;
+  setAuthInitialized: (initialized: boolean) => void;
   addChild: (child: Child) => void;
   updateChild: (id: string, updates: Partial<Child>) => void;
   addScreeningResult: (result: ScreeningResult) => void;
@@ -76,15 +88,20 @@ interface AppState {
   addTherapySession: (session: TherapySession) => void;
   updateTherapySession: (id: string, updates: Partial<TherapySession>) => void;
   getSessionsForChild: (childId: string) => TherapySession[];
+  setSelectedChildId: (childId: string) => void;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
   currentUser: null,
+  authInitialized: false,
   children: [],
   screeningResults: [],
   reports: [],
   therapySessions: [],
+  selectedChildId:
+    typeof window !== 'undefined' ? localStorage.getItem('selectedChildId') || '' : '',
   setCurrentUser: (user) => set({ currentUser: user }),
+  setAuthInitialized: (initialized) => set({ authInitialized: initialized }),
   addChild: (child) => set((state) => ({ children: [...state.children, child] })),
   updateChild: (id, updates) =>
     set((state) => ({
@@ -109,5 +126,15 @@ export const useAppStore = create<AppState>((set, get) => ({
     })),
   getSessionsForChild: (childId) => {
     return get().therapySessions.filter((s) => s.childId === childId);
+  },
+  setSelectedChildId: (childId) => {
+    if (typeof window !== 'undefined') {
+      if (childId) {
+        localStorage.setItem('selectedChildId', childId);
+      } else {
+        localStorage.removeItem('selectedChildId');
+      }
+    }
+    set({ selectedChildId: childId });
   },
 }));

@@ -81,6 +81,7 @@ export const reportsService = {
   },
 
   async createReport(report: Omit<Report, 'id' | 'createdAt'>, authorId: string) {
+    const reportAny = report as any;
     const { data, error } = await supabase
       .from('reports')
       .insert([
@@ -96,6 +97,13 @@ export const reportsService = {
             therapyRecommendations: report.therapyRecommendations,
             monitoringPlan: report.monitoringPlan,
             followUpDate: report.followUpDate,
+            cvRiskLevel: reportAny.cvRiskLevel,
+            cvRiskConfidence: reportAny.cvRiskConfidence,
+            cvRiskDescription: reportAny.cvRiskDescription,
+            objectiveSignals: reportAny.objectiveSignals,
+            objectiveSignalValues: reportAny.objectiveSignalValues,
+            objectiveSignalBaselines: reportAny.objectiveSignalBaselines,
+            signalSummary: reportAny.signalSummary,
           }
         }
       ])
@@ -106,7 +114,7 @@ export const reportsService = {
 };
 
 export const screeningService = {
-  async saveResult(result: Omit<ScreeningResult, 'timestamp'>) {
+  async saveResult(result: Omit<ScreeningResult, 'timestamp'> & { cvReport?: any }) {
     const { data, error } = await supabase
       .from('screening_results')
       .insert([
@@ -114,12 +122,31 @@ export const screeningService = {
           child_id: result.childId,
           risk_level: result.riskLevel,
           indicators: result.indicators,
+          cv_report: result.cvReport ?? null,
           video_url: result.videoFileName, // Mapping videoFileName to video_url
           answers: result.questionnaireAnswers,
         }
       ])
       .select()
       .single();
+    return { data, error };
+  },
+  async getResultsForChild(childId: string) {
+    const { data, error } = await supabase
+      .from('screening_results')
+      .select('*')
+      .eq('child_id', childId)
+      .order('created_at', { ascending: false });
+    return { data, error };
+  },
+  async getLatestResult(childId: string) {
+    const { data, error } = await supabase
+      .from('screening_results')
+      .select('*')
+      .eq('child_id', childId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
     return { data, error };
   },
 };
@@ -197,6 +224,28 @@ export const therapySessionsService = {
       .eq('id', id)
       .select()
       .single();
+    return { data, error };
+  },
+};
+
+export const careDoctorsService = {
+  async getCareDoctorsWithCapacity() {
+    const { data, error } = await supabase.rpc('get_care_doctors_with_capacity');
+    return { data, error };
+  },
+
+  async getMyChildDoctorAssignments() {
+    const { data, error } = await supabase
+      .from('child_doctor_assignments')
+      .select('child_id, doctor_id');
+    return { data, error };
+  },
+
+  async assignDoctorToChild(childId: string, doctorId: string) {
+    const { data, error } = await supabase.rpc('assign_care_doctor_to_child', {
+      p_child_id: childId,
+      p_doctor_id: doctorId,
+    });
     return { data, error };
   },
 };

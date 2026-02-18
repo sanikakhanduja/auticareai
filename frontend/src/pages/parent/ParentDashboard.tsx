@@ -14,11 +14,12 @@ import { DashboardLayout } from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { ChildCard } from "@/components/ChildCard";
 import { AgentBadge } from "@/components/AgentBadge";
-import { Child } from "@/lib/store";
+import { Child, useAppStore } from "@/lib/store";
 import { childrenService } from "@/services/data";
 
 export default function ParentDashboard() {
   const navigate = useNavigate();
+  const { setSelectedChildId } = useAppStore();
   const [children, setChildren] = useState<Child[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -185,7 +186,10 @@ export default function ParentDashboard() {
               >
                 <ChildCard
                   child={child}
-                  onClick={() => navigate(`/parent/children/${child.id}`)}
+                  onClick={() => {
+                    setSelectedChildId(child.id);
+                    navigate(`/parent/children/${child.id}`);
+                  }}
                 />
               </motion.div>
             ))}

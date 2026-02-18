@@ -55,6 +55,68 @@ const mockClinicalSummary = {
 type DecisionType = "observation" | "diagnosis" | null;
 type FlowStep = "decision" | "observation-report" | "diagnosis-confirm" | "diagnosis-report" | "complete";
 
+const parseMaybeNumber = (raw: unknown): number | null => {
+  if (typeof raw === "number" && Number.isFinite(raw)) return raw;
+  if (typeof raw !== "string") return null;
+  const match = raw.match(/-?\d+(\.\d+)?/);
+  if (!match) return null;
+  const parsed = Number(match[0]);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const buildCvReportFields = (cvReport: CvReport | null) => {
+  if (!cvReport) {
+    return {
+      cvRiskLevel: undefined,
+      cvRiskConfidence: undefined,
+      cvRiskDescription: undefined,
+      objectiveSignals: undefined,
+      objectiveSignalValues: undefined,
+      objectiveSignalBaselines: undefined,
+      signalSummary: undefined,
+    };
+  }
+
+  const rawSignals = cvReport.metrics?.objective_signals || {};
+  const objectiveSignals: Record<string, { value: number | null; baseline: number | null; status: string }> = {};
+  const objectiveSignalValues: Record<string, number> = {};
+  const objectiveSignalBaselines: Record<string, number> = {};
+  const signalSummary: string[] = [];
+
+  for (const [key, signal] of Object.entries(rawSignals)) {
+    const valueNum = parseMaybeNumber(signal?.value);
+    const baselineNum = parseMaybeNumber(signal?.baseline);
+    const status = signal?.status || "unknown";
+
+    objectiveSignals[key] = {
+      value: valueNum,
+      baseline: baselineNum,
+      status,
+    };
+
+    if (valueNum !== null) {
+      objectiveSignalValues[key] = valueNum;
+    }
+    if (baselineNum !== null) {
+      objectiveSignalBaselines[key] = baselineNum;
+    }
+
+    signalSummary.push(
+      `${key}=${valueNum ?? "NA"}, baseline=${baselineNum ?? "NA"}, status=${status}`
+    );
+  }
+
+  return {
+    cvRiskLevel: cvReport.risk_assessment?.level,
+    cvRiskConfidence: cvReport.risk_assessment?.confidence,
+    cvRiskDescription: cvReport.risk_assessment?.description,
+    objectiveSignals,
+    objectiveSignalValues,
+    objectiveSignalBaselines,
+    signalSummary,
+  };
+};
+
 export default function DoctorReview() {
   const navigate = useNavigate();
   const { childId } = useParams();
@@ -174,6 +236,7 @@ export default function DoctorReview() {
       screeningSummary: "Screening completed. Further observation recommended.",
       monitoringPlan,
       followUpDate: followUpDate.toISOString(),
+      ...buildCvReportFields(cvReport),
     };
 
     const { error: reportError } = await reportsService.createReport(report, currentUserId);
@@ -225,6 +288,7 @@ export default function DoctorReview() {
         "Occupational therapy 1x weekly",
         "Social skills group sessions",
       ],
+      ...buildCvReportFields(cvReport),
     };
 
     const { error: reportError } = await reportsService.createReport(report, currentUserId);

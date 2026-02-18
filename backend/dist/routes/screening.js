@@ -10,7 +10,7 @@ const form_data_1 = __importDefault(require("form-data"));
 const fs_1 = __importDefault(require("fs"));
 const router = (0, express_1.Router)();
 const upload = (0, multer_1.default)({ dest: "uploads/" });
-const PYTHON_API = process.env.PYTHON_API_URL || "http://localhost:8000";
+const PYTHON_API = process.env.PYTHON_API_URL || "http://127.0.0.1:8000";
 router.post("/screen", upload.single("video"), async (req, res) => {
     if (!req.file) {
         return res.status(400).json({ error: "Video file required" });
@@ -23,13 +23,36 @@ router.post("/screen", upload.single("video"), async (req, res) => {
             body: formData,
             headers: formData.getHeaders(),
         });
+        if (!response.ok) {
+            let errorMessage = `Python screening service error (${response.status})`;
+            try {
+                const errorBody = await response.json();
+                if (errorBody?.error) {
+                    errorMessage = errorBody.error;
+                }
+            }
+            catch {
+                try {
+                    const text = await response.text();
+                    if (text) {
+                        errorMessage = text;
+                    }
+                }
+                catch {
+                    // ignore
+                }
+            }
+            fs_1.default.unlinkSync(req.file.path); // cleanup temp file
+            return res.status(502).json({ error: errorMessage });
+        }
         const data = await response.json();
         fs_1.default.unlinkSync(req.file.path); // cleanup temp file
         return res.json(data);
     }
     catch (err) {
         console.error(err);
-        return res.status(500).json({ error: "Screening failed" });
+        const message = err instanceof Error ? err.message : "Screening failed";
+        return res.status(502).json({ error: message });
     }
 });
 exports.default = router;

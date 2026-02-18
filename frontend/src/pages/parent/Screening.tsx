@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { screenVideo } from "@/services/screening";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -16,8 +16,8 @@ import {
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { AgentBadge } from "@/components/AgentBadge";
-import { Child } from "@/lib/store";
-import { childrenService } from "@/services/data";
+import { Child, useAppStore } from "@/lib/store";
+import { childrenService, screeningService } from "@/services/data";
 
 type ScreeningStep = "upload" | "questionnaire" | "processing" | "results";
 
@@ -62,28 +62,23 @@ const processingSteps = [
   { agent: "monitoring", message: "Generating risk assessment...", duration: 2000 },
 ];
 
-const objectiveSignals = [
-  { label: "Eye Contact Duration", value: "68%", baseline: "75%", status: "below" },
-  { label: "Attention Shifts", value: "12/min", baseline: "8/min", status: "above" },
-  { label: "Gesture Frequency", value: "4/min", baseline: "6/min", status: "below" },
-  { label: "Social Gaze", value: "45%", baseline: "60%", status: "below" },
-  { label: "Response Latency", value: "2.3s", baseline: "1.5s", status: "above" },
-];
-
 export default function Screening() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const { selectedChildId, setSelectedChildId } = useAppStore();
   const [children, setChildren] = useState<Child[]>([]);
   const [loadingChildren, setLoadingChildren] = useState(true);
   const [childrenError, setChildrenError] = useState<string | null>(null);
   const [screeningResult, setScreeningResult] = useState<any>(null);
   const [step, setStep] = useState<ScreeningStep>("upload");
-  const [selectedChild, setSelectedChild] = useState("");
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [processingStep, setProcessingStep] = useState(0);
   const [riskLevel, setRiskLevel] = useState<"low" | "medium" | "high">("medium");
   const [screeningError, setScreeningError] = useState<string | null>(null);
+  const [hasPriorScreening, setHasPriorScreening] = useState(false);
+  const [loadingScreeningHistory, setLoadingScreeningHistory] = useState(false);
 
   useEffect(() => {
     const loadChildren = async () => {
@@ -128,10 +123,38 @@ export default function Screening() {
   }, [children]);
 
   useEffect(() => {
-    if (!selectedChild && mappedChildren.length > 0) {
-      setSelectedChild(mappedChildren[0].id);
+    if (!selectedChildId && mappedChildren.length > 0) {
+      setSelectedChildId(mappedChildren[0].id);
     }
-  }, [mappedChildren, selectedChild]);
+  }, [mappedChildren, selectedChildId, setSelectedChildId]);
+
+  useEffect(() => {
+    const paramChildId = searchParams.get("childId");
+    if (paramChildId && paramChildId !== selectedChildId) {
+      setSelectedChildId(paramChildId);
+    }
+  }, [searchParams, selectedChildId, setSelectedChildId]);
+
+  useEffect(() => {
+    const loadScreeningHistory = async () => {
+      if (!selectedChildId) {
+        setHasPriorScreening(false);
+        return;
+      }
+
+      setLoadingScreeningHistory(true);
+      const { data, error } = await screeningService.getLatestResult(selectedChildId);
+      if (error) {
+        console.error(error);
+        setHasPriorScreening(false);
+      } else {
+        setHasPriorScreening(Boolean(data));
+      }
+      setLoadingScreeningHistory(false);
+    };
+
+    loadScreeningHistory();
+  }, [selectedChildId]);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -141,9 +164,12 @@ export default function Screening() {
   };
 
   const handleStartQuestionnaire = () => {
-    if (uploadedFile && selectedChild) {
-      setStep("questionnaire");
+    if (!uploadedFile || !selectedChildId) return;
+    if (hasPriorScreening) {
+      startProcessing();
+      return;
     }
+    setStep("questionnaire");
   };
 
   const handleAnswer = (answer: string) => {
@@ -156,38 +182,61 @@ export default function Screening() {
   };
 
   const startProcessing = async () => {
-  if (!uploadedFile) return;
+    if (!uploadedFile || !selectedChildId) return;
 
-  setScreeningError(null);
-  setStep("processing");
-  setProcessingStep(0);
+    setScreeningError(null);
+    setStep("processing");
+    setProcessingStep(0);
 
-  try {
-    // Animate fake steps WHILE backend runs
-    let stepIndex = 0;
-    const interval = setInterval(() => {
-      setProcessingStep((prev) => Math.min(prev + 1, processingSteps.length - 1));
-      stepIndex++;
-      if (stepIndex >= processingSteps.length) clearInterval(interval);
-    }, 1500);
+    try {
+      // Animate steps while backend runs
+      let stepIndex = 0;
+      const interval = setInterval(() => {
+        setProcessingStep((prev) => Math.min(prev + 1, processingSteps.length - 1));
+        stepIndex++;
+        if (stepIndex >= processingSteps.length) clearInterval(interval);
+      }, 1500);
 
-    const result = await screenVideo(uploadedFile);
+      const result = await screenVideo(uploadedFile);
 
-    clearInterval(interval);
+      clearInterval(interval);
 
-    setScreeningResult(result);
+      setScreeningResult(result);
 
-    // Map backend risk → UI risk
-    const level = result.risk_assessment.level.toLowerCase();
-    setRiskLevel(level === "low risk" ? "low" : level === "medium risk" ? "medium" : "high");
+      // Map backend risk → UI risk
+      const level = result.risk_assessment?.level?.toLowerCase?.() || "medium";
+      const mappedLevel = level.includes("low")
+        ? "low"
+        : level.includes("medium")
+        ? "medium"
+        : "high";
+      setRiskLevel(mappedLevel);
 
-    setStep("results");
-  } catch (err) {
-    console.error(err);
-    setScreeningError(err instanceof Error ? err.message : "Screening failed. Please try again.");
-    setStep("upload");
-  }
-};
+      const indicators = Object.entries(result.metrics?.behavioral_indicators || {})
+        .filter(([, value]) => Boolean(value))
+        .map(([key]) => key.replace(/_/g, " "));
+
+      await screeningService.saveResult({
+        childId: selectedChildId,
+        riskLevel: mappedLevel,
+        indicators,
+        videoFileName: uploadedFile.name,
+        questionnaireAnswers: answers,
+        cvReport: result,
+      });
+
+      await childrenService.updateChild(selectedChildId, {
+        riskLevel: mappedLevel,
+        screeningStatus: "pending-review",
+      });
+
+      setStep("results");
+    } catch (err) {
+      console.error(err);
+      setScreeningError(err instanceof Error ? err.message : "Screening failed. Please try again.");
+      setStep("upload");
+    }
+  };
 
 
   const riskConfig = {
@@ -208,13 +257,22 @@ export default function Screening() {
     },
   };
 
-  const mockIndicators = [
-    "Eye gaze patterns analyzed from video",
-    "Social engagement behaviors observed",
-    "Response to environmental stimuli noted",
-    "Repetitive behavior patterns assessed",
-    "Communication patterns evaluated",
-  ];
+  const objectiveSignals = useMemo(() => {
+    const rawSignals = screeningResult?.metrics?.objective_signals || {};
+    return Object.entries(rawSignals).map(([key, value]: any) => ({
+      label: key.replace(/_/g, " ").replace(/\b\w/g, (m: string) => m.toUpperCase()),
+      value: value?.value ?? "-",
+      baseline: value?.baseline ?? "-",
+      status: value?.status ?? "unknown",
+    }));
+  }, [screeningResult]);
+
+  const behavioralIndicators = useMemo(() => {
+    const rawIndicators = screeningResult?.metrics?.behavioral_indicators || {};
+    return Object.entries(rawIndicators)
+      .filter(([, value]) => Boolean(value))
+      .map(([key]) => key.replace(/_/g, " "));
+  }, [screeningResult]);
 
   return (
     <DashboardLayout>
@@ -268,9 +326,9 @@ export default function Screening() {
                       {mappedChildren.map((child) => (
                         <button
                           key={child.id}
-                          onClick={() => setSelectedChild(child.id)}
+                          onClick={() => setSelectedChildId(child.id)}
                           className={`w-full rounded-xl border-2 p-4 text-left transition-all ${
-                            selectedChild === child.id
+                            selectedChildId === child.id
                               ? "border-primary bg-primary/5"
                               : "border-border hover:border-primary/50"
                           }`}
@@ -329,15 +387,15 @@ export default function Screening() {
             </div>
 
             <div className="mt-8 flex justify-end">
-              <Button
-                size="lg"
-                variant="hero"
-                disabled={!uploadedFile || !selectedChild}
-                onClick={handleStartQuestionnaire}
-              >
-                Continue to Questionnaire
-                <ArrowRight className="ml-2 h-5 w-5" />
-              </Button>
+                <Button
+                  size="lg"
+                  variant="hero"
+                  disabled={!uploadedFile || !selectedChildId || loadingScreeningHistory}
+                  onClick={handleStartQuestionnaire}
+                >
+                    {hasPriorScreening ? "Start Screening" : "Continue to Questionnaire"}
+                  <ArrowRight className="ml-2 h-5 w-5" />
+                </Button>
             </div>
           </motion.div>
         )}
@@ -448,13 +506,6 @@ export default function Screening() {
                   />
                 ))}
               </div>
-
-              <p className="mt-8 text-sm text-muted-foreground">
-                Simulated AI analysis for demonstration purposes
-              </p>
-              <p className="mt-2 text-xs text-muted-foreground/70 italic">
-                Please wait while our AI agents analyze the data...
-              </p>
             </div>
           </motion.div>
         )}
@@ -481,7 +532,7 @@ export default function Screening() {
                 <div className={`rounded-2xl border border-border ${riskConfig[riskLevel].bg} p-8`}>
                   <div className="flex items-center gap-4 mb-6">
                     <AgentBadge type="screening" />
-                    <span className="text-sm text-muted-foreground">Generated by Screening Agent (Simulated)</span>
+                    <span className="text-sm text-muted-foreground">Generated by Screening Agent</span>
                   </div>
 
                   <h2 className="text-2xl font-bold mb-2">
@@ -496,49 +547,56 @@ export default function Screening() {
                   <div className="rounded-xl bg-card p-6 border border-border mb-6">
                     <h3 className="font-semibold mb-4 flex items-center gap-2">
                       <Activity className="h-5 w-5 text-primary" />
-                      Objective Signal Simulation
+                      Objective Signals
                     </h3>
-                    <p className="text-xs text-muted-foreground mb-4">
-                      Demonstration of how objective behavioral signals COULD be integrated
-                    </p>
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      {objectiveSignals.map((signal, index) => (
-                        <div key={index} className="rounded-lg bg-muted/50 p-3">
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-sm font-medium">{signal.label}</span>
-                            <span className={`text-xs px-2 py-0.5 rounded-full ${
-                              signal.status === "below" 
-                                ? "bg-warning/10 text-warning" 
-                                : "bg-muted text-muted-foreground"
-                            }`}>
-                              {signal.status === "below" ? "Below baseline" : "Above baseline"}
-                            </span>
+                    {objectiveSignals.length > 0 ? (
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        {objectiveSignals.map((signal, index) => (
+                          <div key={index} className="rounded-lg bg-muted/50 p-3">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-sm font-medium">{signal.label}</span>
+                              <span className={`text-xs px-2 py-0.5 rounded-full ${
+                                signal.status === "below_baseline" 
+                                  ? "bg-warning/10 text-warning" 
+                                  : signal.status === "above_baseline"
+                                  ? "bg-success/10 text-success"
+                                  : "bg-muted text-muted-foreground"
+                              }`}>
+                                {signal.status?.replace(/_/g, " ")}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-lg font-bold">{signal.value}</span>
+                              <span className="text-xs text-muted-foreground">/ baseline: {signal.baseline}</span>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-lg font-bold">{signal.value}</span>
-                            <span className="text-xs text-muted-foreground">/ baseline: {signal.baseline}</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">No objective signals available.</p>
+                    )}
                   </div>
 
                   <div className="rounded-xl bg-card p-6 border border-border">
-                    <h3 className="font-semibold mb-4">Behavioral Indicators Analyzed</h3>
-                    <ul className="space-y-3">
-                      {mockIndicators.map((indicator, index) => (
-                        <motion.li
-                          key={index}
-                          initial={{ opacity: 0, x: -10 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: index * 0.1 }}
-                          className="flex items-center gap-3"
-                        >
-                          <CheckCircle2 className="h-5 w-5 text-success" />
-                          <span>{indicator}</span>
-                        </motion.li>
-                      ))}
-                    </ul>
+                    <h3 className="font-semibold mb-4">Behavioral Indicators</h3>
+                    {behavioralIndicators.length > 0 ? (
+                      <ul className="space-y-3">
+                        {behavioralIndicators.map((indicator, index) => (
+                          <motion.li
+                            key={index}
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: index * 0.1 }}
+                            className="flex items-center gap-3"
+                          >
+                            <CheckCircle2 className="h-5 w-5 text-success" />
+                            <span className="capitalize">{indicator}</span>
+                          </motion.li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">No behavioral indicators available.</p>
+                    )}
                   </div>
                 </div>
 
@@ -550,7 +608,7 @@ export default function Screening() {
                     You will be notified once the review is complete.
                   </p>
                   <div className="flex gap-3">
-                    <Button onClick={() => navigate("/parent/progress")}>
+                    <Button onClick={() => navigate(`/parent/progress?childId=${selectedChildId}`)}>
                       View Progress Dashboard
                       <ArrowRight className="ml-2 h-4 w-4" />
                     </Button>

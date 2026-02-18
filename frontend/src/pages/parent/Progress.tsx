@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
@@ -15,7 +15,9 @@ import {
 } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { AgentPanel, AgentBadge } from "@/components/AgentBadge";
-import { useAppStore } from "@/lib/store";
+import TherapyProgressTab from "@/components/TherapyProgressTab";
+import { Child, Report, TherapySession, useAppStore } from "@/lib/store";
+import { childrenService, reportsService, screeningService, therapySessionsService } from "@/services/data";
 import {
   Select,
   SelectContent,
@@ -38,102 +40,21 @@ import {
 } from "recharts";
 import { format } from "date-fns";
 
-// Generate mock progress data based on child ID for consistency
-const generateProgressData = (childId: string) => {
-  // Use childId to seed different data patterns
-  const seed = childId.charCodeAt(0) % 3;
-  
-  const patterns = [
-    // Steady improvement
-    [
-      { month: "Jan", social: 35, communication: 40, motor: 45, cognitive: 38 },
-      { month: "Feb", social: 38, communication: 42, motor: 48, cognitive: 42 },
-      { month: "Mar", social: 42, communication: 45, motor: 52, cognitive: 45 },
-      { month: "Apr", social: 48, communication: 50, motor: 55, cognitive: 50 },
-      { month: "May", social: 52, communication: 55, motor: 58, cognitive: 55 },
-      { month: "Jun", social: 58, communication: 60, motor: 62, cognitive: 60 },
-    ],
-    // Plateau pattern
-    [
-      { month: "Jan", social: 40, communication: 45, motor: 50, cognitive: 42 },
-      { month: "Feb", social: 44, communication: 48, motor: 53, cognitive: 46 },
-      { month: "Mar", social: 48, communication: 52, motor: 55, cognitive: 50 },
-      { month: "Apr", social: 49, communication: 53, motor: 55, cognitive: 51 },
-      { month: "May", social: 50, communication: 54, motor: 56, cognitive: 52 },
-      { month: "Jun", social: 51, communication: 55, motor: 57, cognitive: 53 },
-    ],
-    // Variable progress
-    [
-      { month: "Jan", social: 30, communication: 35, motor: 40, cognitive: 32 },
-      { month: "Feb", social: 35, communication: 40, motor: 45, cognitive: 38 },
-      { month: "Mar", social: 38, communication: 42, motor: 50, cognitive: 40 },
-      { month: "Apr", social: 42, communication: 48, motor: 52, cognitive: 45 },
-      { month: "May", social: 50, communication: 52, motor: 58, cognitive: 52 },
-      { month: "Jun", social: 55, communication: 58, motor: 62, cognitive: 58 },
-    ],
-  ];
-  
-  return patterns[seed];
+const riskScoreMap: Record<string, number> = {
+  low: 25,
+  medium: 50,
+  high: 75,
 };
 
-const generateInsights = (childId: string) => {
-  const seed = childId.charCodeAt(0) % 3;
-  
-  const insightPatterns = [
-    [
-      {
-        type: "positive",
-        title: "Communication Improving",
-        message: "Verbal communication skills have shown 20% improvement over the past 3 months.",
-      },
-      {
-        type: "neutral",
-        title: "Motor Skills Stable",
-        message: "Fine motor skills development is progressing at expected pace.",
-      },
-      {
-        type: "attention",
-        title: "Social Interaction",
-        message: "Consider increasing group play activities to support social skill development.",
-      },
-    ],
-    [
-      {
-        type: "neutral",
-        title: "Possible Plateau Detected",
-        message: "Progress has slowed in recent weeks. Consider therapy adjustment.",
-      },
-      {
-        type: "positive",
-        title: "Motor Skills Strong",
-        message: "Consistent improvement in fine motor coordination activities.",
-      },
-      {
-        type: "attention",
-        title: "Speech Development",
-        message: "Additional speech therapy sessions may help accelerate progress.",
-      },
-    ],
-    [
-      {
-        type: "positive",
-        title: "Excellent Progress",
-        message: "Significant improvement across all developmental areas this quarter.",
-      },
-      {
-        type: "positive",
-        title: "Social Engagement Up",
-        message: "Increased engagement in group activities and peer interactions.",
-      },
-      {
-        type: "neutral",
-        title: "Cognitive Development",
-        message: "Cognitive skills are developing steadily with current intervention plan.",
-      },
-    ],
-  ];
-  
-  return insightPatterns[seed];
+const buildProgressData = (results: any[]) => {
+  if (!results || results.length === 0) return [];
+  const sorted = [...results].sort(
+    (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+  );
+  return sorted.map((result) => ({
+    label: format(new Date(result.created_at), "MMM d"),
+    riskScore: riskScoreMap[result.risk_level] ?? 50,
+  }));
 };
 
 // Generate mock milestones (reports and sessions)
@@ -161,18 +82,156 @@ const generateMilestones = (childId: string, reports: any[], sessions: any[]) =>
 
 export default function Progress() {
   const [searchParams] = useSearchParams();
-  const { children, reports, therapySessions, currentUser } = useAppStore();
-  const [selectedChildId, setSelectedChildId] = useState(
-    searchParams.get("childId") || children[0]?.id || ""
-  );
+  const { selectedChildId, setSelectedChildId, currentUser } = useAppStore();
+  const [children, setChildren] = useState<Child[]>([]);
+  const [reports, setReports] = useState<Report[]>([]);
+  const [therapySessions, setTherapySessions] = useState<TherapySession[]>([]);
+  const [screeningResults, setScreeningResults] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const loadChildren = async () => {
+      setLoading(true);
+      setLoadError(null);
+
+      const { data, error } = await childrenService.getChildren();
+      if (error) {
+        setLoadError(error.message || "Failed to load children");
+        setLoading(false);
+        return;
+      }
+
+      const normalized = (data || []).map((child: any) => ({
+        id: child.id,
+        name: child.name,
+        dateOfBirth: child.date_of_birth,
+        age: 0,
+        gender: child.gender,
+        screeningStatus: child.screening_status,
+        riskLevel: child.risk_level,
+        assignedDoctorId: child.assigned_doctor_id,
+        assignedTherapistId: child.assigned_therapist_id,
+        observationEndDate: child.observation_end_date,
+      }));
+
+      setChildren(normalized);
+      setLoading(false);
+    };
+
+    loadChildren();
+  }, []);
+
+  useEffect(() => {
+    const paramChildId = searchParams.get("childId");
+    if (paramChildId && paramChildId !== selectedChildId) {
+      setSelectedChildId(paramChildId);
+    }
+  }, [searchParams, selectedChildId, setSelectedChildId]);
+
+  useEffect(() => {
+    if (!selectedChildId && children.length > 0) {
+      setSelectedChildId(children[0].id);
+    }
+  }, [children, selectedChildId, setSelectedChildId]);
+
+  useEffect(() => {
+    const loadChildData = async () => {
+      if (!selectedChildId) return;
+
+      const [reportsResponse, sessionsResponse, screeningResponse] = await Promise.all([
+        reportsService.getReports(selectedChildId),
+        therapySessionsService.getSessionsForChild(selectedChildId),
+        screeningService.getResultsForChild(selectedChildId),
+      ]);
+
+      const mappedReports = (reportsResponse.data || []).map((report: any) => ({
+        id: report.id,
+        childId: report.child_id,
+        type: report.type,
+        createdAt: new Date(report.created_at),
+        doctorNotes: report.content?.doctorNotes || "",
+        screeningSummary: report.content?.screeningSummary || "",
+        monitoringPlan: report.content?.monitoringPlan,
+        followUpDate: report.content?.followUpDate,
+        diagnosisConfirmation: report.content?.diagnosisConfirmation,
+        developmentalGaps: report.content?.developmentalGaps,
+        therapyRecommendations: report.content?.therapyRecommendations,
+      }));
+
+      const mappedSessions = (sessionsResponse.data || []).map((session: any) => ({
+        id: session.id,
+        childId: session.child_id,
+        type: session.type,
+        scheduledDate: session.scheduled_date,
+        scheduledTime: session.scheduled_time,
+        status: session.status,
+        goals: session.goals,
+        notes: session.notes,
+        createdAt: new Date(session.created_at),
+      }));
+
+      setReports(mappedReports);
+      setTherapySessions(mappedSessions);
+      setScreeningResults(screeningResponse.data || []);
+    };
+
+    loadChildData();
+  }, [selectedChildId]);
 
   const selectedChild = children.find((c) => c.id === selectedChildId);
-  const progressData = useMemo(() => generateProgressData(selectedChildId), [selectedChildId]);
-  const insights = useMemo(() => generateInsights(selectedChildId), [selectedChildId]);
+  const progressData = useMemo(() => buildProgressData(screeningResults), [screeningResults]);
   const milestones = useMemo(
     () => generateMilestones(selectedChildId, reports, therapySessions),
     [selectedChildId, reports, therapySessions]
   );
+
+  const insights = useMemo(() => {
+    if (!screeningResults || screeningResults.length === 0) return [];
+
+    const sorted = [...screeningResults].sort(
+      (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    );
+    const latest = sorted[sorted.length - 1];
+    const previous = sorted[sorted.length - 2];
+    const latestScore = riskScoreMap[latest.risk_level] ?? 50;
+    const previousScore = previous ? riskScoreMap[previous.risk_level] ?? 50 : null;
+
+    const items = [
+      {
+        type: "neutral",
+        title: "Latest Risk Level",
+        message: `${latest.risk_level?.toUpperCase?.() || "Medium"} risk as of ${format(
+          new Date(latest.created_at),
+          "MMM d, yyyy"
+        )}.`,
+      },
+    ];
+
+    if (previousScore !== null) {
+      if (latestScore < previousScore) {
+        items.push({
+          type: "positive",
+          title: "Risk Trend Improving",
+          message: "Recent screening results show a reduced risk trend compared to the previous check-in.",
+        });
+      } else if (latestScore > previousScore) {
+        items.push({
+          type: "attention",
+          title: "Risk Trend Increasing",
+          message: "Recent screening results show an increased risk trend compared to the previous check-in.",
+        });
+      } else {
+        items.push({
+          type: "neutral",
+          title: "Risk Trend Stable",
+          message: "Recent screening results show a stable risk trend compared to the previous check-in.",
+        });
+      }
+    }
+
+    return items;
+  }, [screeningResults]);
 
   const isTherapist = currentUser?.role === "therapist";
   const isDoctor = currentUser?.role === "doctor";
@@ -439,6 +498,12 @@ export default function Progress() {
           </div>
         </div>
       </motion.div>
+
+      {selectedChild && (
+        <div className="mt-8">
+          <TherapyProgressTab childId={selectedChild.id} childName={selectedChild.name} />
+        </div>
+      )}
     </DashboardLayout>
   );
 }

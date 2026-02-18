@@ -16,13 +16,14 @@ import { DashboardLayout } from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/StatusBadge";
 import { AgentBadge } from "@/components/AgentBadge";
-import { Child, Report } from "@/lib/store";
+import { Child, Report, useAppStore } from "@/lib/store";
 import { childrenService, reportsService } from "@/services/data";
 import { format } from "date-fns";
 
 export default function ChildProfile() {
   const navigate = useNavigate();
   const { childId } = useParams();
+  const { setSelectedChildId } = useAppStore();
   const [child, setChild] = useState<Child | null>(null);
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
@@ -58,6 +59,8 @@ export default function ChildProfile() {
         assignedTherapistId: data.assigned_therapist_id,
         observationEndDate: data.observation_end_date,
       });
+
+      setSelectedChildId(data.id);
 
       const { data: reportRows } = await reportsService.getReports(data.id);
       const mappedReports = (reportRows || []).map((report: any) => ({
@@ -217,7 +220,7 @@ export default function ChildProfile() {
 
             {child.screeningStatus === "not-started" && (
               <div className="mt-4">
-                <Button onClick={() => navigate("/parent/screening")}>
+                <Button onClick={() => navigate(`/parent/screening?childId=${child.id}`)}>
                   Start Screening
                 </Button>
               </div>
@@ -225,9 +228,33 @@ export default function ChildProfile() {
 
             {child.screeningStatus === "under-observation" && (
               <div className="mt-4">
-                <Button onClick={() => navigate("/parent/screening")}>
-                  Upload Follow-up Video
-                </Button>
+                {(() => {
+                  const now = new Date();
+                  const followUpDate = child.observationEndDate ? new Date(child.observationEndDate) : null;
+                  const isFollowUpDateReached = !followUpDate || now >= followUpDate;
+                  
+                  return (
+                    <Button 
+                      onClick={() => navigate(`/parent/screening?childId=${child.id}`)}
+                      disabled={!isFollowUpDateReached}
+                      className="relative"
+                    >
+                      {isFollowUpDateReached ? (
+                        "Upload Follow-up Video"
+                      ) : (
+                        <>
+                          <Clock className="h-4 w-4 mr-2" />
+                          Follow-up Available {followUpDate ? format(followUpDate, "MMM d, yyyy") : "Soon"}
+                        </>
+                      )}
+                    </Button>
+                  );
+                })()}
+                {child.observationEndDate && new Date() < new Date(child.observationEndDate) && (
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Follow-up upload will be available on {format(new Date(child.observationEndDate), "MMMM d, yyyy")}
+                  </p>
+                )}
               </div>
             )}
           </motion.div>
@@ -324,7 +351,7 @@ export default function ChildProfile() {
                     variant="outline"
                     size="sm"
                     className="mt-3"
-                    onClick={() => navigate("/parent/progress")}
+                    onClick={() => navigate(`/parent/progress?childId=${child.id}`)}
                   >
                     <TrendingUp className="mr-2 h-4 w-4" />
                     View Progress
