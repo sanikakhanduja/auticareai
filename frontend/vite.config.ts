@@ -11,6 +11,12 @@ export default defineConfig(({ mode }) => ({
       overlay: false,
     },
   },
+  preview: {
+    allowedHosts: [
+      "auticareai-2.onrender.com",
+      "*.onrender.com",
+    ],
+  },
   plugins: [react()].filter(Boolean),
   resolve: {
     alias: {
