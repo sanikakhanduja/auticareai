@@ -8,6 +8,29 @@ const progressInferenceService_1 = require("../services/progressInferenceService
 const router = (0, express_1.Router)();
 const therapyTypeSchema = zod_1.z.enum(['speech', 'motor', 'social', 'behavioral']);
 const roleSchema = zod_1.z.enum(['parent', 'therapist', 'doctor']);
+const score = zod_1.z.number().min(0).max(1);
+const sessionMetricsBodySchema = zod_1.z.object({
+    childId: zod_1.z.string().uuid(),
+    therapistId: zod_1.z.string().uuid(),
+    sessionId: zod_1.z.string().uuid().optional(),
+    sessionDate: zod_1.z.string().datetime().optional(),
+    sessionDurationMinutes: zod_1.z.number().int().min(1).max(300).default(45),
+    therapyType: therapyTypeSchema,
+    eyeContactScore: score.optional(),
+    socialEngagementScore: score.optional(),
+    emotionalRegulationScore: score.optional(),
+    attentionSpanScore: score.optional(),
+    communicationScore: score.optional(),
+    motorCoordinationScore: score.optional(),
+    sessionEngagementScore: score.optional(),
+    responseLatencySeconds: zod_1.z.number().min(0).max(600).optional(),
+    gestureFrequency: zod_1.z.number().min(0).max(10000).optional(),
+    verbalUtterances: zod_1.z.number().int().min(0).max(10000).optional(),
+    attentionSpanSeconds: zod_1.z.number().int().min(0).max(7200).optional(),
+    cvModelVersion: zod_1.z.string().max(120).optional(),
+    cvConfidenceScore: score.optional(),
+    videoQualityScore: score.optional(),
+});
 const getDefaultAnalytics = (therapyType) => ({
     child_id: '',
     therapy_type: therapyType,
@@ -33,6 +56,45 @@ const getDefaultAnalytics = (therapyType) => ({
     best_performing_metric: 'report_based',
     needs_attention_metric: 'report_based',
 });
+router.post('/metrics', async (req, res) => {
+    const parseResult = sessionMetricsBodySchema.safeParse(req.body);
+    if (!parseResult.success) {
+        return res.status(400).json({ error: 'Invalid session metrics payload', details: parseResult.error.flatten() });
+    }
+    const payload = parseResult.data;
+    try {
+        const data = await progressAnalytics_1.progressAnalyticsService.saveSessionMetrics({
+            ...payload,
+            sessionDate: payload.sessionDate || new Date().toISOString(),
+        });
+        return res.status(201).json({ data });
+    }
+    catch (error) {
+        console.error('[Progress API] Failed to save metrics:', error);
+        return res.status(500).json({ error: 'Failed to save session metrics' });
+    }
+});
+router.get('/sessions', async (req, res) => {
+    const parseResult = zod_1.z
+        .object({
+        childId: zod_1.z.string().uuid(),
+        therapyType: therapyTypeSchema,
+        limit: zod_1.z.coerce.number().int().min(1).max(200).optional(),
+    })
+        .safeParse(req.query);
+    if (!parseResult.success) {
+        return res.status(400).json({ error: 'Invalid query params', details: parseResult.error.flatten() });
+    }
+    const { childId, therapyType, limit = 15 } = parseResult.data;
+    try {
+        const data = await progressAnalytics_1.progressAnalyticsService.getSessionSeries(childId, therapyType, limit);
+        return res.json({ data });
+    }
+    catch (error) {
+        console.error('[Progress API] Failed to load session series:', error);
+        return res.status(500).json({ error: 'Failed to load session series' });
+    }
+});
 router.get('/analytics', async (req, res) => {
     const parseResult = zod_1.z
         .object({
@@ -45,7 +107,6 @@ router.get('/analytics', async (req, res) => {
     }
     const { childId, therapyType } = parseResult.data;
     try {
-        console.log('[Progress API] GET /analytics', { childId, therapyType });
         const data = await progressAnalytics_1.progressAnalyticsService.getAnalytics(childId, therapyType);
         return res.json({ data });
     }
@@ -66,7 +127,6 @@ router.post('/analytics/compute', async (req, res) => {
     }
     const { childId, therapyType } = parseResult.data;
     try {
-        console.log('[Progress API] POST /analytics/compute', { childId, therapyType });
         const analytics = await progressAnalytics_1.progressAnalyticsService.computeProgress(childId, therapyType);
         return res.json({ data: analytics });
     }
@@ -86,7 +146,6 @@ router.get('/alerts', async (req, res) => {
     }
     const { childId } = parseResult.data;
     try {
-        console.log('[Progress API] GET /alerts', { childId });
         const data = await progressAnalytics_1.progressAnalyticsService.getAlerts(childId);
         return res.json({ data });
     }
@@ -102,7 +161,7 @@ router.post('/explanation', async (req, res) => {
         analytics: zod_1.z.any().optional(),
         role: roleSchema,
         childName: zod_1.z.string().min(1),
-        therapyType: zod_1.z.string().min(1),
+        therapyType: therapyTypeSchema,
         recentMilestones: zod_1.z.array(zod_1.z.string()).optional(),
     })
         .safeParse(req.body);
@@ -111,7 +170,6 @@ router.post('/explanation', async (req, res) => {
     }
     try {
         const { role, childName, therapyType, childId } = parseResult.data;
-        console.log('[Progress API] POST /explanation', { role, childName, therapyType, childId });
         const context = await progressInferenceService_1.progressInferenceService.buildContext({
             childId,
             therapyType,
@@ -129,9 +187,9 @@ router.post('/explanation', async (req, res) => {
         }
         const data = await llmExplanationService_1.llmExplanationService.generateExplanation({
             analytics: parseResult.data.analytics || getDefaultAnalytics(therapyType),
-            role: parseResult.data.role,
-            childName: parseResult.data.childName,
-            therapyType: parseResult.data.therapyType,
+            role,
+            childName,
+            therapyType,
             recentMilestones: context.milestones,
         });
         await progressInferenceService_1.progressInferenceService.persistInference({

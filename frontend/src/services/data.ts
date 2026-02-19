@@ -5,6 +5,8 @@ export interface TherapistProfile {
   id: string;
   fullName: string | null;
   specialty: string | null;
+  state: string | null;
+  district: string | null;
 }
 
 export interface DoctorProfile {
@@ -347,7 +349,7 @@ export const profilesService = {
   async getTherapists() {
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, full_name, specialty')
+      .select('id, full_name, specialty, state, district')
       .eq('role', 'therapist')
       .order('full_name', { ascending: true });
     return { data, error };

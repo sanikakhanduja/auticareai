@@ -60,6 +60,8 @@ interface Therapist {
   location: string;
   available: boolean;
   therapyTypes: string[];
+  state?: string | null;
+  district?: string | null;
 }
 
 const libraries: ("places")[] = ["places"];
@@ -133,6 +135,7 @@ export default function FindProfessionals() {
 
   const child = children.find((c) => c.id === selectedChild);
   const isDiagnosed = child?.screeningStatus === "diagnosed";
+  const normalize = (value?: string | null) => (value || "").trim().toLowerCase();
 
   const handleSelectDoctor = async (doctorId: string) => {
     if (!child) return;
@@ -171,20 +174,36 @@ export default function FindProfessionals() {
   };
 
   const filteredDoctors = doctors.filter((doc) => {
+    const query = normalize(searchQuery);
     const matchesSearch =
-      doc.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      doc.specialization.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesState = selectedState !== "all" ? doc.state === selectedState : true;
+      normalize(doc.name).includes(query) ||
+      normalize(doc.specialization).includes(query) ||
+      normalize(doc.id).includes(query) ||
+      normalize(doc.state).includes(query) ||
+      normalize(doc.district).includes(query);
+    const matchesState =
+      selectedState !== "all" ? normalize(doc.state) === normalize(selectedState) : true;
     const matchesDistrict = districtQuery
-      ? (doc.district || "").toLowerCase().includes(districtQuery.toLowerCase())
+      ? normalize(doc.district).includes(normalize(districtQuery))
       : true;
     return matchesSearch && matchesState && matchesDistrict;
   });
 
-  const filteredTherapists = therapists.filter((ther) =>
-    ther.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    ther.specialization.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredTherapists = therapists.filter((ther) => {
+    const query = normalize(searchQuery);
+    const matchesSearch =
+      normalize(ther.name).includes(query) ||
+      normalize(ther.specialization).includes(query) ||
+      normalize(ther.id).includes(query) ||
+      normalize(ther.state).includes(query) ||
+      normalize(ther.district).includes(query);
+    const matchesState =
+      selectedState !== "all" ? normalize(ther.state) === normalize(selectedState) : true;
+    const matchesDistrict = districtQuery
+      ? normalize(ther.district).includes(normalize(districtQuery))
+      : true;
+    return matchesSearch && matchesState && matchesDistrict;
+  });
 
   const assignedTherapist = child?.assignedTherapistId
     ? therapists.find((therapist) => therapist.id === child.assignedTherapistId)
@@ -332,6 +351,9 @@ export default function FindProfessionals() {
       const ratingStats = ratingMap[profile.id];
       const average = ratingStats ? ratingStats.total / ratingStats.count : 0;
       const specialty = profile.specialty || "General Therapy";
+      const district = profile.district || "";
+      const state = profile.state || "";
+      const locationLabel = district && state ? `${district}, ${state}` : state || district || "Location not set";
       return {
         id: profile.id,
         name: profile.full_name || "Therapist",
@@ -339,9 +361,11 @@ export default function FindProfessionals() {
         specialization: specialty,
         rating: Number(average.toFixed(1)),
         reviews: ratingStats?.count || 0,
-        location: "Remote / Local",
+        location: locationLabel,
         available: true,
         therapyTypes: specialty ? [specialty] : [],
+        state: profile.state,
+        district: profile.district,
       } as Therapist;
     });
 
@@ -456,7 +480,7 @@ export default function FindProfessionals() {
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search by name or specialization..."
+            placeholder="Search by name, specialization, ID, or location..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-10"

@@ -1,70 +1,93 @@
 /**
- * =====================================================
- * THERAPY PROGRESS ANALYTICS SERVICE - PRODUCTION GRADE
- * =====================================================
- * Purpose: Compute numeric progress metrics efficiently
- * NO LLM involvement - pure mathematical computation
- * Scalable for 1000+ sessions per child
- * =====================================================
+ * Structured therapy metrics analytics engine.
+ * - Stores validated numeric session metrics
+ * - Computes progress numerically (no LLM math)
+ * - Persists cached analytics for fast reads
  */
 
 import { supabase } from '../config/supabase';
 
-// =====================================================
-// TYPES & INTERFACES
-// =====================================================
+export type TherapyType = 'speech' | 'motor' | 'social' | 'behavioral';
 
-export interface SessionMetrics {
+export interface SessionMetricsRow {
   id: string;
   child_id: string;
   therapist_id: string;
+  session_id?: string | null;
   session_date: string;
-  therapy_type: 'speech' | 'motor' | 'social' | 'behavioral';
-  eye_contact_score?: number;
-  social_engagement_score?: number;
-  emotional_regulation_score?: number;
-  attention_span_score?: number;
-  communication_score?: number;
-  motor_coordination_score?: number;
-  session_engagement_score?: number;
-  response_latency_seconds?: number;
-  gesture_frequency?: number;
-  verbal_utterances?: number;
+  therapy_type: TherapyType;
+  session_duration_minutes: number;
+  eye_contact_score?: number | null;
+  social_engagement_score?: number | null;
+  emotional_regulation_score?: number | null;
+  attention_span_score?: number | null;
+  communication_score?: number | null;
+  motor_coordination_score?: number | null;
+  session_engagement_score?: number | null;
+  response_latency_seconds?: number | null;
+  gesture_frequency?: number | null;
+  verbal_utterances?: number | null;
+  attention_span_seconds?: number | null;
+  cv_model_version?: string | null;
+  cv_confidence_score?: number | null;
+  video_quality_score?: number | null;
+  created_at?: string;
+}
+
+export interface SaveSessionMetricsInput {
+  childId: string;
+  therapistId: string;
+  therapyType: TherapyType;
+  sessionDate: string;
+  sessionDurationMinutes: number;
+  sessionId?: string;
+  eyeContactScore?: number;
+  socialEngagementScore?: number;
+  emotionalRegulationScore?: number;
+  attentionSpanScore?: number;
+  communicationScore?: number;
+  motorCoordinationScore?: number;
+  sessionEngagementScore?: number;
+  responseLatencySeconds?: number;
+  gestureFrequency?: number;
+  verbalUtterances?: number;
+  attentionSpanSeconds?: number;
+  cvModelVersion?: string;
+  cvConfidenceScore?: number;
+  videoQualityScore?: number;
 }
 
 export interface ProgressAnalytics {
   child_id: string;
   therapy_type: string;
   total_sessions: number;
-  
-  // Averages
   average_eye_contact: number;
   average_social_engagement: number;
   average_emotional_regulation: number;
   average_attention_span: number;
   average_communication: number;
   average_session_engagement: number;
-  
-  // Trends
   eye_contact_trend: 'improving' | 'stable' | 'regressing';
   social_engagement_trend: 'improving' | 'stable' | 'regressing';
   emotional_regulation_trend: 'improving' | 'stable' | 'regressing';
   overall_trend: 'improving' | 'stable' | 'regressing';
-  
-  // Change Metrics
   eye_contact_change_pct: number;
   social_engagement_change_pct: number;
   emotional_regulation_change_pct: number;
   overall_improvement_pct: number;
-  
-  // Flags
   has_regression: boolean;
   regression_metrics: string[];
   stagnation_count: number;
   consistency_score: number;
-  
   best_performing_metric: string;
   needs_attention_metric: string;
+  moving_average_eye_contact: number;
+  moving_average_social_engagement: number;
+  moving_average_emotional_regulation: number;
+  moving_average_session_engagement: number;
+  eye_contact_std_dev: number;
+  social_engagement_std_dev: number;
+  emotional_regulation_std_dev: number;
 }
 
 export interface ProgressAlert {
@@ -79,515 +102,477 @@ export interface ProgressAlert {
   metric_values: Record<string, number>;
 }
 
-// =====================================================
-// CONFIGURATION
-// =====================================================
-
 const CONFIG = {
-  REGRESSION_THRESHOLD: 0.10, // 10% drop = regression
-  STAGNATION_THRESHOLD: 0.05, // <5% change = stagnation
-  IMPROVEMENT_THRESHOLD: 0.05, // >5% increase = improvement
-  ANALYSIS_PERIOD_DAYS: 30, // Analyze last 30 days
-  COMPARISON_PERIOD_DAYS: 30, // Compare to previous 30 days
-  MIN_SESSIONS_FOR_TREND: 3, // Need 3+ sessions to determine trend
-  ALERT_STAGNATION_COUNT: 3, // Alert after 3 consecutive stagnant sessions
+  REGRESSION_THRESHOLD_PCT: 10,
+  STAGNATION_THRESHOLD_PCT: 5,
+  IMPROVEMENT_THRESHOLD_PCT: 5,
+  MOVING_AVERAGE_WINDOW: 5,
+  RECENT_PERIOD_DAYS: 30,
+  PREVIOUS_PERIOD_DAYS: 30,
+  MAX_ANALYSIS_SESSIONS: 1000,
+  MIN_SESSIONS_FOR_TREND: 3,
+  ALERT_STAGNATION_COUNT: 3,
 };
 
-// =====================================================
-// CORE ANALYTICS ENGINE
-// =====================================================
+const SCORE_FIELDS = {
+  eye_contact: 'eye_contact_score',
+  social_engagement: 'social_engagement_score',
+  emotional_regulation: 'emotional_regulation_score',
+  attention_span: 'attention_span_score',
+  communication: 'communication_score',
+  session_engagement: 'session_engagement_score',
+} as const;
+
+type ScoreKey = keyof typeof SCORE_FIELDS;
+
+const round = (value: number, places = 3): number => {
+  const power = Math.pow(10, places);
+  return Math.round(value * power) / power;
+};
+
+const mean = (values: number[]): number => {
+  if (values.length === 0) return 0;
+  return values.reduce((acc, value) => acc + value, 0) / values.length;
+};
+
+const stdDev = (values: number[]): number => {
+  if (values.length < 2) return 0;
+  const avg = mean(values);
+  const variance = values.reduce((acc, value) => acc + Math.pow(value - avg, 2), 0) / values.length;
+  return Math.sqrt(variance);
+};
+
+const slope = (values: number[]): number => {
+  if (values.length < 2) return 0;
+  const n = values.length;
+  const xMean = (n - 1) / 2;
+  const yMean = mean(values);
+
+  let numerator = 0;
+  let denominator = 0;
+  for (let i = 0; i < n; i++) {
+    numerator += (i - xMean) * (values[i] - yMean);
+    denominator += Math.pow(i - xMean, 2);
+  }
+
+  return denominator === 0 ? 0 : numerator / denominator;
+};
+
+const pctChange = (previous: number, current: number): number => {
+  if (!previous || previous <= 0) return 0;
+  return ((current - previous) / previous) * 100;
+};
+
+const mapRowToInput = (input: SaveSessionMetricsInput) => ({
+  child_id: input.childId,
+  therapist_id: input.therapistId,
+  session_id: input.sessionId || null,
+  session_date: input.sessionDate,
+  therapy_type: input.therapyType,
+  session_duration_minutes: input.sessionDurationMinutes,
+  eye_contact_score: input.eyeContactScore ?? null,
+  social_engagement_score: input.socialEngagementScore ?? null,
+  emotional_regulation_score: input.emotionalRegulationScore ?? null,
+  attention_span_score: input.attentionSpanScore ?? null,
+  communication_score: input.communicationScore ?? null,
+  motor_coordination_score: input.motorCoordinationScore ?? null,
+  session_engagement_score: input.sessionEngagementScore ?? null,
+  response_latency_seconds: input.responseLatencySeconds ?? null,
+  gesture_frequency: input.gestureFrequency ?? null,
+  verbal_utterances: input.verbalUtterances ?? null,
+  attention_span_seconds: input.attentionSpanSeconds ?? null,
+  cv_model_version: input.cvModelVersion ?? null,
+  cv_confidence_score: input.cvConfidenceScore ?? null,
+  video_quality_score: input.videoQualityScore ?? null,
+});
 
 export class TherapyProgressAnalytics {
-  
-  /**
-   * Main entry point: Compute all progress metrics for a child
-   * Called after each new session is added
-   * 
-   * @param childId - Child UUID
-   * @param therapyType - Type of therapy
-   * @returns Computed analytics
-   */
-  static async computeProgress(
-    childId: string,
-    therapyType: 'speech' | 'motor' | 'social' | 'behavioral'
-  ): Promise<ProgressAnalytics> {
-    
-    console.log(`[Analytics] Computing progress for child ${childId}, therapy: ${therapyType}`);
-    
-    try {
-      // Step 1: Fetch recent sessions (last 30 days)
-      const recentSessions = await this.fetchRecentSessions(childId, therapyType, CONFIG.ANALYSIS_PERIOD_DAYS);
-      
-      if (recentSessions.length < CONFIG.MIN_SESSIONS_FOR_TREND) {
-        console.log(`[Analytics] Insufficient data: ${recentSessions.length} sessions (need ${CONFIG.MIN_SESSIONS_FOR_TREND})`);
-        return this.getDefaultAnalytics(childId, therapyType);
+  static async saveSessionMetrics(input: SaveSessionMetricsInput): Promise<SessionMetricsRow> {
+    const row = mapRowToInput(input);
+
+    if (input.sessionId) {
+      const { data: existing, error: readError } = await supabase
+        .from('therapy_session_metrics')
+        .select('id')
+        .eq('session_id', input.sessionId)
+        .limit(1)
+        .maybeSingle();
+
+      if (readError) {
+        throw new Error(`Failed to check existing session metrics: ${readError.message}`);
       }
-      
-      // Step 2: Fetch previous period sessions for comparison
-      const previousSessions = await this.fetchPreviousPeriodSessions(
-        childId,
-        therapyType,
-        CONFIG.COMPARISON_PERIOD_DAYS
-      );
-      
-      // Step 3: Compute averages
-      const recentAverages = this.computeAverages(recentSessions);
-      const previousAverages = previousSessions.length > 0 
-        ? this.computeAverages(previousSessions)
-        : null;
-      
-      // Step 4: Compute trends and changes
-      const trends = this.computeTrends(recentSessions);
-      const changes = previousAverages 
-        ? this.computeChanges(previousAverages, recentAverages)
-        : this.getDefaultChanges();
-      
-      // Step 5: Detect regression
-      const regressionAnalysis = this.detectRegression(changes);
-      
-      // Step 6: Compute consistency (standard deviation)
-      const consistency = this.computeConsistency(recentSessions);
-      
-      // Step 7: Identify best/worst metrics
-      const metricAnalysis = this.analyzeMetrics(recentAverages);
-      
-      // Step 8: Check stagnation
-      const stagnationCount = await this.checkStagnation(childId, therapyType);
-      
-      // Build analytics object
-      const analytics: ProgressAnalytics = {
-        child_id: childId,
-        therapy_type: therapyType,
-        total_sessions: recentSessions.length,
-        
-        // Averages
-        average_eye_contact: recentAverages.eye_contact,
-        average_social_engagement: recentAverages.social_engagement,
-        average_emotional_regulation: recentAverages.emotional_regulation,
-        average_attention_span: recentAverages.attention_span,
-        average_communication: recentAverages.communication,
-        average_session_engagement: recentAverages.session_engagement,
-        
-        // Trends
-        eye_contact_trend: trends.eye_contact,
-        social_engagement_trend: trends.social_engagement,
-        emotional_regulation_trend: trends.emotional_regulation,
-        overall_trend: trends.overall,
-        
-        // Changes
-        eye_contact_change_pct: changes.eye_contact,
-        social_engagement_change_pct: changes.social_engagement,
-        emotional_regulation_change_pct: changes.emotional_regulation,
-        overall_improvement_pct: changes.overall,
-        
-        // Flags
-        has_regression: regressionAnalysis.hasRegression,
-        regression_metrics: regressionAnalysis.metrics,
-        stagnation_count: stagnationCount,
-        consistency_score: consistency,
-        
-        best_performing_metric: metricAnalysis.best,
-        needs_attention_metric: metricAnalysis.worst,
-      };
-      
-      // Step 9: Save to database
-      await this.saveAnalytics(analytics);
-      
-      // Step 10: Generate alerts if needed
-      await this.generateAlerts(analytics, recentSessions);
-      
-      console.log(`[Analytics] ✅ Progress computed successfully`);
-      return analytics;
-      
-    } catch (error) {
-      console.error('[Analytics] ❌ Error computing progress:', error);
-      throw new Error(`Failed to compute progress: ${(error as Error).message}`);
+
+      if (existing?.id) {
+        const { data: updated, error: updateError } = await supabase
+          .from('therapy_session_metrics')
+          .update(row)
+          .eq('id', existing.id)
+          .select('*')
+          .single();
+
+        if (updateError) {
+          throw new Error(`Failed to update session metrics: ${updateError.message}`);
+        }
+
+        return updated as SessionMetricsRow;
+      }
     }
-  }
-  
-  // =====================================================
-  // DATA FETCHING
-  // =====================================================
-  
-  /**
-   * Fetch recent sessions for analysis
-   * Optimized query with indexes
-   */
-  private static async fetchRecentSessions(
-    childId: string,
-    therapyType: string,
-    days: number
-  ): Promise<SessionMetrics[]> {
-    
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - days);
-    
+
     const { data, error } = await supabase
       .from('therapy_session_metrics')
+      .insert(row)
       .select('*')
-      .eq('child_id', childId)
-      .eq('therapy_type', therapyType)
-      .gte('session_date', startDate.toISOString())
-      .order('session_date', { ascending: true });
-    
-    if (error) throw error;
-    return data as SessionMetrics[];
-  }
-  
-  /**
-   * Fetch previous period sessions for comparison
-   */
-  private static async fetchPreviousPeriodSessions(
-    childId: string,
-    therapyType: string,
-    days: number
-  ): Promise<SessionMetrics[]> {
-    
-    const endDate = new Date();
-    endDate.setDate(endDate.getDate() - days);
-    
-    const startDate = new Date(endDate);
-    startDate.setDate(startDate.getDate() - days);
-    
-    const { data, error } = await supabase
-      .from('therapy_session_metrics')
-      .select('*')
-      .eq('child_id', childId)
-      .eq('therapy_type', therapyType)
-      .gte('session_date', startDate.toISOString())
-      .lt('session_date', endDate.toISOString())
-      .order('session_date', { ascending: true });
-    
-    if (error) throw error;
-    return data as SessionMetrics[];
-  }
-  
-  // =====================================================
-  // COMPUTATION FUNCTIONS
-  // =====================================================
-  
-  /**
-   * Compute average scores for all metrics
-   */
-  private static computeAverages(sessions: SessionMetrics[]) {
-    const metrics = [
-      'eye_contact_score',
-      'social_engagement_score',
-      'emotional_regulation_score',
-      'attention_span_score',
-      'communication_score',
-      'session_engagement_score',
-    ];
-    
-    const averages: Record<string, number> = {};
-    
-    for (const metric of metrics) {
-      const values = sessions
-        .map(s => s[metric as keyof SessionMetrics] as number)
-        .filter(v => v != null && !isNaN(v));
-      
-      const avg = values.length > 0
-        ? values.reduce((sum, val) => sum + val, 0) / values.length
-        : 0;
-      
-      const key = metric.replace('_score', '');
-      averages[key] = Math.round(avg * 1000) / 1000; // 3 decimal places
+      .single();
+
+    if (error) {
+      throw new Error(`Failed to save session metrics: ${error.message}`);
     }
-    
-    return averages;
+
+    return data as SessionMetricsRow;
   }
-  
-  /**
-   * Compute trend for each metric (improving/stable/regressing)
-   * Uses linear regression on recent sessions
-   */
-  private static computeTrends(sessions: SessionMetrics[]) {
-    const metrics = [
-      'eye_contact_score',
-      'social_engagement_score',
-      'emotional_regulation_score',
-    ];
-    
-    const trends: Record<string, 'improving' | 'stable' | 'regressing'> = {};
-    
-    for (const metric of metrics) {
-      const values = sessions
-        .map(s => s[metric as keyof SessionMetrics] as number)
-        .filter(v => v != null && !isNaN(v));
-      
-      if (values.length < 2) {
-        trends[metric.replace('_score', '')] = 'stable';
-        continue;
-      }
-      
-      // Simple linear regression slope
-      const slope = this.calculateSlope(values);
-      
-      if (slope > CONFIG.IMPROVEMENT_THRESHOLD) {
-        trends[metric.replace('_score', '')] = 'improving';
-      } else if (slope < -CONFIG.REGRESSION_THRESHOLD) {
-        trends[metric.replace('_score', '')] = 'regressing';
-      } else {
-        trends[metric.replace('_score', '')] = 'stable';
-      }
+
+  static async computeProgress(childId: string, therapyType: TherapyType): Promise<ProgressAnalytics> {
+    const allSessions = await this.fetchSessionHistory(childId, therapyType, CONFIG.MAX_ANALYSIS_SESSIONS);
+
+    if (allSessions.length < CONFIG.MIN_SESSIONS_FOR_TREND) {
+      const defaults = this.getDefaultAnalytics(childId, therapyType);
+      await this.saveAnalytics(defaults);
+      return defaults;
     }
-    
-    // Overall trend is most common individual trend
-    const trendValues = Object.values(trends);
-    const mostCommon = trendValues.sort((a, b) =>
-      trendValues.filter(v => v === a).length - trendValues.filter(v => v === b).length
-    ).pop() || 'stable';
-    
-    trends.overall = mostCommon;
-    
-    return trends;
-  }
-  
-  /**
-   * Calculate slope for trend analysis
-   */
-  private static calculateSlope(values: number[]): number {
-    const n = values.length;
-    const xMean = (n - 1) / 2;
-    const yMean = values.reduce((sum, val) => sum + val, 0) / n;
-    
-    let numerator = 0;
-    let denominator = 0;
-    
-    for (let i = 0; i < n; i++) {
-      numerator += (i - xMean) * (values[i] - yMean);
-      denominator += Math.pow(i - xMean, 2);
-    }
-    
-    return denominator === 0 ? 0 : numerator / denominator;
-  }
-  
-  /**
-   * Compute % changes between periods
-   */
-  private static computeChanges(
-    previous: Record<string, number>,
-    recent: Record<string, number>
-  ) {
-    const changes: Record<string, number> = {};
-    
-    for (const key of Object.keys(recent)) {
-      if (previous[key] && previous[key] > 0) {
-        const change = ((recent[key] - previous[key]) / previous[key]) * 100;
-        changes[key] = Math.round(change * 100) / 100; // 2 decimal places
-      } else {
-        changes[key] = 0;
-      }
-    }
-    
-    // Overall change is average of all changes
-    const allChanges = Object.values(changes).filter(v => !isNaN(v));
-    changes.overall = allChanges.length > 0
-      ? Math.round((allChanges.reduce((sum, v) => sum + v, 0) / allChanges.length) * 100) / 100
-      : 0;
-    
-    return changes;
-  }
-  
-  /**
-   * Detect regression in any metric
-   */
-  private static detectRegression(changes: Record<string, number>) {
-    const regressionMetrics: string[] = [];
-    
-    for (const [key, value] of Object.entries(changes)) {
-      if (key !== 'overall' && value < -(CONFIG.REGRESSION_THRESHOLD * 100)) {
-        regressionMetrics.push(key);
-      }
-    }
-    
-    return {
-      hasRegression: regressionMetrics.length > 0,
-      metrics: regressionMetrics,
+
+    const now = new Date();
+    const recentStart = new Date(now);
+    recentStart.setDate(recentStart.getDate() - CONFIG.RECENT_PERIOD_DAYS);
+
+    const previousStart = new Date(recentStart);
+    previousStart.setDate(previousStart.getDate() - CONFIG.PREVIOUS_PERIOD_DAYS);
+
+    const recentSessions = allSessions.filter((row) => new Date(row.session_date) >= recentStart);
+    const previousSessions = allSessions.filter((row) => {
+      const dt = new Date(row.session_date);
+      return dt >= previousStart && dt < recentStart;
+    });
+
+    // If recent window is too narrow, keep using latest sessions to avoid empty analytics.
+    const recentWindow = recentSessions.length >= CONFIG.MIN_SESSIONS_FOR_TREND
+      ? recentSessions
+      : allSessions.slice(-Math.min(30, allSessions.length));
+
+    const recentStats = this.computeStats(recentWindow);
+    const previousStats = previousSessions.length > 0 ? this.computeStats(previousSessions) : null;
+
+    const eyeContactChange = pctChange(previousStats?.averages.eye_contact || 0, recentStats.averages.eye_contact);
+    const socialChange = pctChange(previousStats?.averages.social_engagement || 0, recentStats.averages.social_engagement);
+    const emotionalChange = pctChange(
+      previousStats?.averages.emotional_regulation || 0,
+      recentStats.averages.emotional_regulation,
+    );
+
+    const changeValues = [eyeContactChange, socialChange, emotionalChange];
+    const overallImprovement = round(mean(changeValues), 2);
+
+    const regressionMetrics = [
+      eyeContactChange < -CONFIG.REGRESSION_THRESHOLD_PCT ? 'eye_contact' : null,
+      socialChange < -CONFIG.REGRESSION_THRESHOLD_PCT ? 'social_engagement' : null,
+      emotionalChange < -CONFIG.REGRESSION_THRESHOLD_PCT ? 'emotional_regulation' : null,
+    ].filter((value): value is string => Boolean(value));
+
+    const trendMap: Record<ScoreKey | 'overall', 'improving' | 'stable' | 'regressing'> = {
+      eye_contact: this.toTrend(recentStats.slopes.eye_contact),
+      social_engagement: this.toTrend(recentStats.slopes.social_engagement),
+      emotional_regulation: this.toTrend(recentStats.slopes.emotional_regulation),
+      attention_span: this.toTrend(recentStats.slopes.attention_span),
+      communication: this.toTrend(recentStats.slopes.communication),
+      session_engagement: this.toTrend(recentStats.slopes.session_engagement),
+      overall: 'stable',
     };
-  }
-  
-  /**
-   * Compute consistency score (inverse of standard deviation)
-   * Lower score = more inconsistent
-   */
-  private static computeConsistency(sessions: SessionMetrics[]): number {
-    const engagementScores = sessions
-      .map(s => s.session_engagement_score)
-      .filter((v): v is number => v != null && !isNaN(v));
-    
-    if (engagementScores.length < 2) return 1.0;
-    
-    const mean = engagementScores.reduce((sum, v) => sum + v, 0) / engagementScores.length;
-    const variance = engagementScores.reduce((sum, v) => sum + Math.pow(v - mean, 2), 0) / engagementScores.length;
-    const stdDev = Math.sqrt(variance);
-    
-    // Convert to consistency score (0-1, higher = more consistent)
-    const consistency = Math.max(0, 1 - stdDev);
-    return Math.round(consistency * 1000) / 1000;
-  }
-  
-  /**
-   * Identify best and worst performing metrics
-   */
-  private static analyzeMetrics(averages: Record<string, number>) {
-    const entries = Object.entries(averages)
-      .filter(([key]) => key !== 'overall')
+
+    trendMap.overall = this.resolveOverallTrend([
+      trendMap.eye_contact,
+      trendMap.social_engagement,
+      trendMap.emotional_regulation,
+    ]);
+
+    const metricEntries = Object.entries(recentStats.averages)
+      .filter(([key]) => key !== 'session_engagement')
       .sort(([, a], [, b]) => b - a);
-    
+
+    const stagnationCount = await this.computeStagnationCount(childId, therapyType, overallImprovement);
+
+    const analytics: ProgressAnalytics = {
+      child_id: childId,
+      therapy_type: therapyType,
+      total_sessions: recentWindow.length,
+      average_eye_contact: recentStats.averages.eye_contact,
+      average_social_engagement: recentStats.averages.social_engagement,
+      average_emotional_regulation: recentStats.averages.emotional_regulation,
+      average_attention_span: recentStats.averages.attention_span,
+      average_communication: recentStats.averages.communication,
+      average_session_engagement: recentStats.averages.session_engagement,
+      eye_contact_trend: trendMap.eye_contact,
+      social_engagement_trend: trendMap.social_engagement,
+      emotional_regulation_trend: trendMap.emotional_regulation,
+      overall_trend: trendMap.overall,
+      eye_contact_change_pct: round(eyeContactChange, 2),
+      social_engagement_change_pct: round(socialChange, 2),
+      emotional_regulation_change_pct: round(emotionalChange, 2),
+      overall_improvement_pct: overallImprovement,
+      has_regression: regressionMetrics.length > 0,
+      regression_metrics: regressionMetrics,
+      stagnation_count: stagnationCount,
+      consistency_score: round(Math.max(0, 1 - recentStats.stdDev.session_engagement), 3),
+      best_performing_metric: metricEntries[0]?.[0] || 'unknown',
+      needs_attention_metric: metricEntries[metricEntries.length - 1]?.[0] || 'unknown',
+      moving_average_eye_contact: recentStats.movingAverage.eye_contact,
+      moving_average_social_engagement: recentStats.movingAverage.social_engagement,
+      moving_average_emotional_regulation: recentStats.movingAverage.emotional_regulation,
+      moving_average_session_engagement: recentStats.movingAverage.session_engagement,
+      eye_contact_std_dev: recentStats.stdDev.eye_contact,
+      social_engagement_std_dev: recentStats.stdDev.social_engagement,
+      emotional_regulation_std_dev: recentStats.stdDev.emotional_regulation,
+    };
+
+    await this.saveAnalytics(analytics);
+    await this.generateAlerts(analytics, recentWindow);
+
+    return analytics;
+  }
+
+  static async fetchSessionSeries(childId: string, therapyType: TherapyType, limit = 15): Promise<SessionMetricsRow[]> {
+    const normalizedLimit = Math.min(Math.max(limit, 1), 200);
+    const { data, error } = await supabase
+      .from('therapy_session_metrics')
+      .select(
+        'id, child_id, therapist_id, session_id, session_date, therapy_type, session_duration_minutes, eye_contact_score, social_engagement_score, emotional_regulation_score, attention_span_score, communication_score, motor_coordination_score, session_engagement_score, response_latency_seconds, gesture_frequency, verbal_utterances, attention_span_seconds, cv_model_version, cv_confidence_score, video_quality_score, created_at',
+      )
+      .eq('child_id', childId)
+      .eq('therapy_type', therapyType)
+      .order('session_date', { ascending: false })
+      .limit(normalizedLimit);
+
+    if (error) {
+      throw new Error(`Failed to fetch session series: ${error.message}`);
+    }
+
+    return ((data || []) as SessionMetricsRow[]).reverse();
+  }
+
+  private static async fetchSessionHistory(
+    childId: string,
+    therapyType: TherapyType,
+    limit: number,
+  ): Promise<SessionMetricsRow[]> {
+    const { data, error } = await supabase
+      .from('therapy_session_metrics')
+      .select(
+        'id, child_id, therapist_id, session_id, session_date, therapy_type, session_duration_minutes, eye_contact_score, social_engagement_score, emotional_regulation_score, attention_span_score, communication_score, motor_coordination_score, session_engagement_score, response_latency_seconds, gesture_frequency, verbal_utterances, attention_span_seconds, cv_model_version, cv_confidence_score, video_quality_score, created_at',
+      )
+      .eq('child_id', childId)
+      .eq('therapy_type', therapyType)
+      .order('session_date', { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      throw new Error(`Failed to fetch sessions: ${error.message}`);
+    }
+
+    return ((data || []) as SessionMetricsRow[]).reverse();
+  }
+
+  private static computeStats(sessions: SessionMetricsRow[]) {
+    const averages: Record<ScoreKey, number> = {
+      eye_contact: 0,
+      social_engagement: 0,
+      emotional_regulation: 0,
+      attention_span: 0,
+      communication: 0,
+      session_engagement: 0,
+    };
+
+    const slopes: Record<ScoreKey, number> = {
+      eye_contact: 0,
+      social_engagement: 0,
+      emotional_regulation: 0,
+      attention_span: 0,
+      communication: 0,
+      session_engagement: 0,
+    };
+
+    const movingAverage: Record<ScoreKey, number> = {
+      eye_contact: 0,
+      social_engagement: 0,
+      emotional_regulation: 0,
+      attention_span: 0,
+      communication: 0,
+      session_engagement: 0,
+    };
+
+    const deviation: Record<ScoreKey, number> = {
+      eye_contact: 0,
+      social_engagement: 0,
+      emotional_regulation: 0,
+      attention_span: 0,
+      communication: 0,
+      session_engagement: 0,
+    };
+
+    (Object.keys(SCORE_FIELDS) as ScoreKey[]).forEach((metric) => {
+      const field = SCORE_FIELDS[metric];
+      const values = sessions
+        .map((session) => session[field])
+        .filter((value): value is number => typeof value === 'number' && Number.isFinite(value));
+
+      averages[metric] = round(mean(values));
+      slopes[metric] = slope(values);
+      movingAverage[metric] = this.computeMovingAverage(values, CONFIG.MOVING_AVERAGE_WINDOW);
+      deviation[metric] = round(stdDev(values), 3);
+    });
+
     return {
-      best: entries[0]?.[0] || 'unknown',
-      worst: entries[entries.length - 1]?.[0] || 'unknown',
+      averages,
+      slopes,
+      movingAverage,
+      stdDev: deviation,
     };
   }
-  
-  /**
-   * Check how many consecutive sessions show stagnation
-   */
-  private static async checkStagnation(
-    childId: string,
-    therapyType: string
-  ): Promise<number> {
-    
-    const lastFive = await this.fetchRecentSessions(childId, therapyType, 60); // Last 2 months
-    
-    if (lastFive.length < 4) return 0;
-    
-    const recent = lastFive.slice(-3);
-    const comparison = lastFive.slice(-6, -3);
-    
-    if (comparison.length === 0) return 0;
-    
-    const recentAvg = this.computeAverages(recent);
-    const comparisonAvg = this.computeAverages(comparison);
-    
-    const changes = this.computeChanges(comparisonAvg, recentAvg);
-    
-    const isStagnant = Math.abs(changes.overall) < CONFIG.STAGNATION_THRESHOLD * 100;
-    
-    if (isStagnant) {
-      // Check previous analytics to get stagnation count
-      const { data } = await supabase
-        .from('progress_analytics')
-        .select('stagnation_count')
-        .eq('child_id', childId)
-        .eq('therapy_type', therapyType)
-        .single();
-      
-      return (data?.stagnation_count || 0) + 1;
-    }
-    
-    return 0;
+
+  private static computeMovingAverage(values: number[], window: number): number {
+    if (values.length === 0) return 0;
+    const subset = values.slice(-Math.min(window, values.length));
+    return round(mean(subset));
   }
-  
-  // =====================================================
-  // DATABASE OPERATIONS
-  // =====================================================
-  
-  /**
-   * Save computed analytics to database
-   * Uses UPSERT to update existing record
-   */
+
+  private static toTrend(metricSlope: number): 'improving' | 'stable' | 'regressing' {
+    if (metricSlope > CONFIG.IMPROVEMENT_THRESHOLD_PCT / 100) return 'improving';
+    if (metricSlope < -(CONFIG.REGRESSION_THRESHOLD_PCT / 100)) return 'regressing';
+    return 'stable';
+  }
+
+  private static resolveOverallTrend(
+    trends: Array<'improving' | 'stable' | 'regressing'>,
+  ): 'improving' | 'stable' | 'regressing' {
+    const score = trends.reduce((acc, trend) => {
+      if (trend === 'improving') return acc + 1;
+      if (trend === 'regressing') return acc - 1;
+      return acc;
+    }, 0);
+
+    if (score > 0) return 'improving';
+    if (score < 0) return 'regressing';
+    return 'stable';
+  }
+
+  private static async computeStagnationCount(
+    childId: string,
+    therapyType: TherapyType,
+    overallImprovementPct: number,
+  ): Promise<number> {
+    if (Math.abs(overallImprovementPct) >= CONFIG.STAGNATION_THRESHOLD_PCT) {
+      return 0;
+    }
+
+    const { data, error } = await supabase
+      .from('progress_analytics')
+      .select('stagnation_count')
+      .eq('child_id', childId)
+      .eq('therapy_type', therapyType)
+      .maybeSingle();
+
+    if (error) {
+      return 1;
+    }
+
+    return (data?.stagnation_count || 0) + 1;
+  }
+
   private static async saveAnalytics(analytics: ProgressAnalytics): Promise<void> {
     const { error } = await supabase
       .from('progress_analytics')
-      .upsert({
-        child_id: analytics.child_id,
-        therapy_type: analytics.therapy_type,
-        total_sessions: analytics.total_sessions,
-        
-        average_eye_contact: analytics.average_eye_contact,
-        average_social_engagement: analytics.average_social_engagement,
-        average_emotional_regulation: analytics.average_emotional_regulation,
-        average_attention_span: analytics.average_attention_span,
-        average_communication: analytics.average_communication,
-        average_session_engagement: analytics.average_session_engagement,
-        
-        eye_contact_trend: analytics.eye_contact_trend,
-        social_engagement_trend: analytics.social_engagement_trend,
-        emotional_regulation_trend: analytics.emotional_regulation_trend,
-        overall_trend: analytics.overall_trend,
-        
-        eye_contact_change_pct: analytics.eye_contact_change_pct,
-        social_engagement_change_pct: analytics.social_engagement_change_pct,
-        emotional_regulation_change_pct: analytics.emotional_regulation_change_pct,
-        overall_improvement_pct: analytics.overall_improvement_pct,
-        
-        has_regression: analytics.has_regression,
-        regression_metrics: analytics.regression_metrics,
-        stagnation_count: analytics.stagnation_count,
-        consistency_score: analytics.consistency_score,
-        
-        best_performing_metric: analytics.best_performing_metric,
-        needs_attention_metric: analytics.needs_attention_metric,
-        
-        last_session_date: new Date().toISOString(),
-        analysis_period_start: new Date(Date.now() - CONFIG.ANALYSIS_PERIOD_DAYS * 24 * 60 * 60 * 1000).toISOString(),
-        analysis_period_end: new Date().toISOString(),
-        calculated_at: new Date().toISOString(),
-      }, {
-        onConflict: 'child_id,therapy_type'
-      });
-    
-    if (error) throw error;
+      .upsert(
+        {
+          child_id: analytics.child_id,
+          therapy_type: analytics.therapy_type,
+          total_sessions: analytics.total_sessions,
+          average_eye_contact: analytics.average_eye_contact,
+          average_social_engagement: analytics.average_social_engagement,
+          average_emotional_regulation: analytics.average_emotional_regulation,
+          average_attention_span: analytics.average_attention_span,
+          average_communication: analytics.average_communication,
+          average_session_engagement: analytics.average_session_engagement,
+          eye_contact_trend: analytics.eye_contact_trend,
+          social_engagement_trend: analytics.social_engagement_trend,
+          emotional_regulation_trend: analytics.emotional_regulation_trend,
+          overall_trend: analytics.overall_trend,
+          eye_contact_change_pct: analytics.eye_contact_change_pct,
+          social_engagement_change_pct: analytics.social_engagement_change_pct,
+          emotional_regulation_change_pct: analytics.emotional_regulation_change_pct,
+          overall_improvement_pct: analytics.overall_improvement_pct,
+          has_regression: analytics.has_regression,
+          regression_metrics: analytics.regression_metrics,
+          stagnation_count: analytics.stagnation_count,
+          consistency_score: analytics.consistency_score,
+          best_performing_metric: analytics.best_performing_metric,
+          needs_attention_metric: analytics.needs_attention_metric,
+          last_session_date: new Date().toISOString(),
+          analysis_period_start: new Date(Date.now() - CONFIG.RECENT_PERIOD_DAYS * 24 * 60 * 60 * 1000).toISOString(),
+          analysis_period_end: new Date().toISOString(),
+          calculated_at: new Date().toISOString(),
+        },
+        { onConflict: 'child_id,therapy_type' },
+      );
+
+    if (error) {
+      throw new Error(`Failed to save analytics: ${error.message}`);
+    }
   }
-  
-  /**
-   * Generate alerts based on analytics
-   */
-  private static async generateAlerts(
-    analytics: ProgressAnalytics,
-    sessions: SessionMetrics[]
-  ): Promise<void> {
-    
+
+  private static async generateAlerts(analytics: ProgressAnalytics, sessions: SessionMetricsRow[]): Promise<void> {
+    const latestTherapistId = sessions[sessions.length - 1]?.therapist_id;
+    if (!latestTherapistId) return;
+
     const alerts: Omit<ProgressAlert, 'id'>[] = [];
-    
-    // Regression Alert
+
     if (analytics.has_regression) {
       alerts.push({
         child_id: analytics.child_id,
-        therapist_id: sessions[sessions.length - 1].therapist_id,
+        therapist_id: latestTherapistId,
         alert_type: 'regression',
         severity: analytics.regression_metrics.length >= 2 ? 'high' : 'medium',
-        title: 'Regression Detected',
-        description: `Child shows regression in ${analytics.regression_metrics.length} metric(s): ${analytics.regression_metrics.join(', ')}`,
+        title: 'Regression detected',
+        description: `Regression threshold crossed for: ${analytics.regression_metrics.join(', ')}`,
         affected_metrics: analytics.regression_metrics,
         metric_values: {
-          overall_change: analytics.overall_improvement_pct,
+          overall_change_pct: analytics.overall_improvement_pct,
         },
       });
     }
-    
-    // Stagnation Alert
+
     if (analytics.stagnation_count >= CONFIG.ALERT_STAGNATION_COUNT) {
       alerts.push({
         child_id: analytics.child_id,
-        therapist_id: sessions[sessions.length - 1].therapist_id,
+        therapist_id: latestTherapistId,
         alert_type: 'stagnation',
         severity: analytics.stagnation_count >= 5 ? 'high' : 'medium',
-        title: 'Progress Stagnation',
-        description: `No significant improvement for ${analytics.stagnation_count} consecutive analysis periods`,
+        title: 'Progress plateau',
+        description: `Progress is stagnant for ${analytics.stagnation_count} periods.`,
         affected_metrics: ['overall_progress'],
         metric_values: {
           stagnation_count: analytics.stagnation_count,
-          overall_change: analytics.overall_improvement_pct,
+          overall_change_pct: analytics.overall_improvement_pct,
         },
       });
     }
-    
-    // Save alerts
-    for (const alert of alerts) {
-      await supabase
-        .from('progress_alerts')
-        .insert(alert);
+
+    if (alerts.length === 0) return;
+
+    const { error } = await supabase.from('progress_alerts').insert(alerts);
+    if (error) {
+      // Alerts should not block analytics pipeline.
+      console.warn('[Analytics] Failed to save alerts:', error.message);
     }
   }
-  
-  // =====================================================
-  // HELPER FUNCTIONS
-  // =====================================================
-  
-  private static getDefaultAnalytics(childId: string, therapyType: string): ProgressAnalytics {
+
+  private static getDefaultAnalytics(childId: string, therapyType: TherapyType): ProgressAnalytics {
     return {
       child_id: childId,
       therapy_type: therapyType,
@@ -612,56 +597,48 @@ export class TherapyProgressAnalytics {
       consistency_score: 1,
       best_performing_metric: 'unknown',
       needs_attention_metric: 'unknown',
-    };
-  }
-  
-  private static getDefaultChanges(): Record<string, number> {
-    return {
-      eye_contact: 0,
-      social_engagement: 0,
-      emotional_regulation: 0,
-      attention_span: 0,
-      communication: 0,
-      session_engagement: 0,
-      overall: 0,
+      moving_average_eye_contact: 0,
+      moving_average_social_engagement: 0,
+      moving_average_emotional_regulation: 0,
+      moving_average_session_engagement: 0,
+      eye_contact_std_dev: 0,
+      social_engagement_std_dev: 0,
+      emotional_regulation_std_dev: 0,
     };
   }
 }
 
-// =====================================================
-// EXPORT API ENDPOINTS
-// =====================================================
-
 export const progressAnalyticsService = {
-  
-  /**
-   * Compute progress after new session
-   */
-  async computeProgress(childId: string, therapyType: 'speech' | 'motor' | 'social' | 'behavioral') {
-    return await TherapyProgressAnalytics.computeProgress(childId, therapyType);
+  async saveSessionMetrics(input: SaveSessionMetricsInput) {
+    const saved = await TherapyProgressAnalytics.saveSessionMetrics(input);
+    const analytics = await TherapyProgressAnalytics.computeProgress(input.childId, input.therapyType);
+    return { saved, analytics };
   },
-  
-  /**
-   * Get cached analytics (fast)
-   */
+
+  async computeProgress(childId: string, therapyType: TherapyType) {
+    return TherapyProgressAnalytics.computeProgress(childId, therapyType);
+  },
+
   async getAnalytics(childId: string, therapyType?: string) {
-    let query = supabase
-      .from('progress_analytics')
-      .select('*')
-      .eq('child_id', childId);
-    
+    let query = supabase.from('progress_analytics').select('*').eq('child_id', childId);
+
     if (therapyType) {
       query = query.eq('therapy_type', therapyType);
     }
-    
-    const { data, error } = await query;
-    if (error) throw error;
-    return data;
+
+    const { data, error } = await query.order('calculated_at', { ascending: false });
+
+    if (error) {
+      throw new Error(`Failed to fetch analytics: ${error.message}`);
+    }
+
+    return data || [];
   },
-  
-  /**
-   * Get active alerts
-   */
+
+  async getSessionSeries(childId: string, therapyType: TherapyType, limit = 15) {
+    return TherapyProgressAnalytics.fetchSessionSeries(childId, therapyType, limit);
+  },
+
   async getAlerts(childId: string) {
     const { data, error } = await supabase
       .from('progress_alerts')
@@ -669,14 +646,14 @@ export const progressAnalyticsService = {
       .eq('child_id', childId)
       .eq('status', 'active')
       .order('created_at', { ascending: false });
-    
-    if (error) throw error;
-    return data;
+
+    if (error) {
+      throw new Error(`Failed to fetch alerts: ${error.message}`);
+    }
+
+    return data || [];
   },
-  
-  /**
-   * Acknowledge alert
-   */
+
   async acknowledgeAlert(alertId: string, userId: string) {
     const { error } = await supabase
       .from('progress_alerts')
@@ -687,7 +664,9 @@ export const progressAnalyticsService = {
         updated_at: new Date().toISOString(),
       })
       .eq('id', alertId);
-    
-    if (error) throw error;
+
+    if (error) {
+      throw new Error(`Failed to acknowledge alert: ${error.message}`);
+    }
   },
 };

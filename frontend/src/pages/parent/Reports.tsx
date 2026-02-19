@@ -39,6 +39,17 @@ import {
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 
+interface AvailableDoctor {
+  id: string;
+  full_name?: string | null;
+  name?: string | null;
+  specialty?: string | null;
+  state?: string | null;
+  district?: string | null;
+  patientCount?: number | null;
+  canAcceptPatients?: boolean;
+}
+
 export default function Reports() {
   const { toast } = useToast();
   const [children, setChildren] = useState<Child[]>([]);
@@ -54,7 +65,7 @@ export default function Reports() {
   const [secondOpinionError, setSecondOpinionError] = useState<string | null>(null);
   const [secondOpinionLoading, setSecondOpinionLoading] = useState(false);
   const [showDoctorSelectModal, setShowDoctorSelectModal] = useState(false);
-  const [availableDoctors, setAvailableDoctors] = useState<any[]>([]);
+  const [availableDoctors, setAvailableDoctors] = useState<AvailableDoctor[]>([]);
   const [loadingDoctors, setLoadingDoctors] = useState(false);
   const [doctorSelectError, setDoctorSelectError] = useState<string | null>(null);
   const [reportForConsult, setReportForConsult] = useState<Report | null>(null);
@@ -168,6 +179,10 @@ export default function Reports() {
 
   const handleSecondOpinionRequest = async () => {
     if (!selectedReport || !currentUserId) return;
+    if (!child?.assignedDoctorId) {
+      setSecondOpinionError("No assigned doctor found for this child.");
+      return;
+    }
     setSecondOpinionError(null);
     setSecondOpinionLoading(true);
 
@@ -175,6 +190,7 @@ export default function Reports() {
       childId: selectedReport.childId,
       reportId: selectedReport.id,
       parentId: currentUserId,
+      requestedDoctorId: child.assignedDoctorId,
       notes: secondOpinionNotes.trim() ? secondOpinionNotes.trim() : null,
     });
 
@@ -224,7 +240,7 @@ export default function Reports() {
     setLoadingDoctors(true);
 
     // Find selected doctor's name
-    const selectedDoctor = availableDoctors.find(d => d.id === doctorId);
+    const selectedDoctor = availableDoctors.find((d) => d.id === doctorId);
     const doctorName = selectedDoctor?.full_name || selectedDoctor?.name || "the selected doctor";
 
     const { data, error } = await secondOpinionService.createRequest({
@@ -250,12 +266,7 @@ export default function Reports() {
 
     // Show success toast with checkmark that auto-dismisses after 5 seconds
     toast({
-      title: (
-        <div className="flex items-center gap-2">
-          <CheckCircle2 className="h-5 w-5 text-green-600" />
-          <span>Consulting Another Doctor</span>
-        </div>
-      ),
+      title: "Consulting Another Doctor",
       description: `Your child has been assigned to ${doctorName}. They will review the report shortly.`,
       duration: 5000,
     });

@@ -27,7 +27,25 @@ exports.registerSchema = zod_1.z.object({
     email: zod_1.z.string().email('Invalid email address'),
     password: zod_1.z.string().min(6, 'Password must be at least 6 characters'),
     full_name: zod_1.z.string().min(2, 'Name must be at least 2 characters'),
-    role: zod_1.z.enum(['parent', 'doctor', 'therapist'])
+    role: zod_1.z.enum(['parent', 'doctor', 'therapist']),
+    state: zod_1.z.string().trim().optional(),
+    district: zod_1.z.string().trim().optional(),
+}).superRefine((data, ctx) => {
+    const isProvider = data.role === 'doctor' || data.role === 'therapist';
+    if (isProvider && !data.state) {
+        ctx.addIssue({
+            code: zod_1.z.ZodIssueCode.custom,
+            path: ['state'],
+            message: 'State is required for doctors and therapists',
+        });
+    }
+    if (isProvider && !data.district) {
+        ctx.addIssue({
+            code: zod_1.z.ZodIssueCode.custom,
+            path: ['district'],
+            message: 'District is required for doctors and therapists',
+        });
+    }
 });
 exports.loginSchema = zod_1.z.object({
     email: zod_1.z.string().email(),

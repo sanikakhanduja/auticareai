@@ -9,6 +9,7 @@ const helmet_1 = __importDefault(require("helmet"));
 const dotenv_1 = __importDefault(require("dotenv"));
 const express_rate_limit_1 = __importDefault(require("express-rate-limit"));
 const auth_1 = __importDefault(require("./routes/auth"));
+const doctors_1 = __importDefault(require("./routes/doctors"));
 const supabase_1 = require("./config/supabase");
 const screening_1 = __importDefault(require("./routes/screening"));
 const progress_1 = __importDefault(require("./routes/progress"));
@@ -41,6 +42,7 @@ const limiter = (0, express_rate_limit_1.default)({
 app.use(limiter);
 // Routes
 app.use('/api/auth', auth_1.default);
+app.use('/api/doctors', doctors_1.default);
 app.use('/api/screening', screening_1.default);
 app.use('/api/progress', progress_1.default);
 // Health Check

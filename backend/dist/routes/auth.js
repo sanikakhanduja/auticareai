@@ -21,14 +21,14 @@ passport_1.default.use(new passport_google_oauth20_1.Strategy({
 }));
 // Signup Route
 router.post('/signup', (0, validation_1.validateRequest)(validation_1.registerSchema), async (req, res) => {
-    const { email, password, full_name, role } = req.body;
+    const { email, password, full_name, role, state, district } = req.body;
     try {
         // 1. Create User in Supabase Auth
         const { data: authData, error: authError } = await supabase_1.supabase.auth.admin.createUser({
             email,
             password,
             email_confirm: true, // Auto confirm for this example
-            user_metadata: { full_name, role }
+            user_metadata: { full_name, role, state, district }
         });
         if (authError) {
             console.error('Supabase Auth Error:', authError);
@@ -46,7 +46,9 @@ router.post('/signup', (0, validation_1.validateRequest)(validation_1.registerSc
             id: authData.user.id,
             full_name,
             role,
-            email
+            email,
+            state: state ?? null,
+            district: district ?? null,
         });
         if (profileError) {
             console.error('Profile Creation Error:', profileError);

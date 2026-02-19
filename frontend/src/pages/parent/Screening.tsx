@@ -22,6 +22,7 @@ import { Child, useAppStore } from "@/lib/store";
 import { childrenService, screeningService } from "@/services/data";
 
 type ScreeningStep = "upload" | "questionnaire" | "processing" | "results";
+type ScreeningStatus = "in-progress" | "pending" | "reviewed";
 
 interface QuestionnaireAnswer {
   question: string;
@@ -81,6 +82,8 @@ export default function Screening() {
   const [screeningError, setScreeningError] = useState<string | null>(null);
   const [hasPriorScreening, setHasPriorScreening] = useState(false);
   const [loadingScreeningHistory, setLoadingScreeningHistory] = useState(false);
+  const [screeningStatus, setScreeningStatus] = useState<ScreeningStatus>("in-progress");
+  const [savingStatus, setSavingStatus] = useState(false);
 
   useEffect(() => {
     const loadChildren = async () => {
@@ -189,6 +192,7 @@ export default function Screening() {
     setScreeningError(null);
     setStep("processing");
     setProcessingStep(0);
+    setScreeningStatus("in-progress");
 
     try {
       // Animate steps while backend runs
@@ -218,6 +222,7 @@ export default function Screening() {
         .filter(([, value]) => Boolean(value))
         .map(([key]) => key.replace(/_/g, " "));
 
+      setSavingStatus(true);
       await screeningService.saveResult({
         childId: selectedChildId,
         riskLevel: mappedLevel,
@@ -231,9 +236,12 @@ export default function Screening() {
         riskLevel: mappedLevel,
         screeningStatus: "pending-review",
       });
+      setSavingStatus(false);
+      setScreeningStatus("pending");
 
       setStep("results");
     } catch (err) {
+      setSavingStatus(false);
       console.error(err);
       setScreeningError(err instanceof Error ? err.message : "Screening failed. Please try again.");
       setStep("upload");

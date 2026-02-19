@@ -21,7 +21,7 @@ passport.use(new GoogleStrategy({
 
 // Signup Route
 router.post('/signup', validateRequest(registerSchema), async (req, res) => {
-  const { email, password, full_name, role } = req.body;
+  const { email, password, full_name, role, state, district } = req.body;
 
   try {
     // 1. Create User in Supabase Auth
@@ -29,7 +29,7 @@ router.post('/signup', validateRequest(registerSchema), async (req, res) => {
       email,
       password,
       email_confirm: true, // Auto confirm for this example
-      user_metadata: { full_name, role }
+      user_metadata: { full_name, role, state, district }
     });
 
     if (authError) {
@@ -50,7 +50,9 @@ router.post('/signup', validateRequest(registerSchema), async (req, res) => {
         id: authData.user.id,
         full_name,
         role,
-        email
+        email,
+        state: state ?? null,
+        district: district ?? null,
       });
 
     if (profileError) {

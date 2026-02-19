@@ -22,8 +22,9 @@ export default function Auth() {
   const [step, setStep] = useState<AuthStep>("role");
   const [selectedRole, setSelectedRole] = useState<UserRole | null>(null);
   const [isSignUp, setIsSignUp] = useState(true);
-  const [requiresDoctorLocation, setRequiresDoctorLocation] = useState(false);
-  const [pendingDoctorId, setPendingDoctorId] = useState<string | null>(null);
+  const [requiresProviderLocation, setRequiresProviderLocation] = useState(false);
+  const [pendingProviderId, setPendingProviderId] = useState<string | null>(null);
+  const [pendingProviderRole, setPendingProviderRole] = useState<"doctor" | "therapist" | null>(null);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -33,6 +34,7 @@ export default function Auth() {
   });
   const navigate = useNavigate();
   const { setCurrentUser } = useAppStore();
+  const isProviderRole = selectedRole === "doctor" || selectedRole === "therapist";
 
   const roles = [
     {
@@ -108,13 +110,13 @@ export default function Auth() {
     e.preventDefault();
     if (!selectedRole && isSignUp) return; // Role is required for signup
 
-    if (requiresDoctorLocation && pendingDoctorId) {
+    if (requiresProviderLocation && pendingProviderId) {
       if (!formData.state || !formData.district) {
         alert("Please select a state and enter a district.");
         return;
       }
 
-      const { error } = await profilesService.updateLocation(pendingDoctorId, {
+      const { error } = await profilesService.updateLocation(pendingProviderId, {
         state: formData.state,
         district: formData.district,
       });
@@ -124,13 +126,19 @@ export default function Auth() {
         return;
       }
 
-      setRequiresDoctorLocation(false);
-      setPendingDoctorId(null);
-      navigate("/doctor");
+      const providerRole = pendingProviderRole || selectedRole;
+      setRequiresProviderLocation(false);
+      setPendingProviderId(null);
+      setPendingProviderRole(null);
+      if (providerRole === "therapist") {
+        navigate("/therapist");
+      } else {
+        navigate("/doctor");
+      }
       return;
     }
 
-    if (isSignUp && selectedRole === "doctor") {
+    if (isSignUp && isProviderRole) {
       if (!formData.state || !formData.district) {
         alert("Please select a state and enter a district.");
         return;
@@ -144,7 +152,7 @@ export default function Auth() {
           formData.password,
           formData.name,
           selectedRole as UserRole,
-          selectedRole === "doctor"
+          isProviderRole
             ? {
                 state: formData.state,
                 district: formData.district,
@@ -190,10 +198,13 @@ export default function Auth() {
         const profile = await authService.getCurrentUser();
         const role = profile?.profile?.role || "parent";
 
-        if (role === "doctor" && (!profile?.profile?.state || !profile?.profile?.district)) {
-          setSelectedRole("doctor");
-          setRequiresDoctorLocation(true);
-          setPendingDoctorId(profile?.id || data.user?.id || null);
+        const roleNeedsLocation = role === "doctor" || role === "therapist";
+        if (roleNeedsLocation && (!profile?.profile?.state || !profile?.profile?.district)) {
+          const providerRole = role as "doctor" | "therapist";
+          setSelectedRole(providerRole);
+          setRequiresProviderLocation(true);
+          setPendingProviderId(profile?.id || data.user?.id || null);
+          setPendingProviderRole(providerRole);
           return;
         }
 
@@ -341,14 +352,14 @@ export default function Auth() {
               <div className="rounded-2xl border border-border bg-card p-8 shadow-elevated">
                 <div className="text-center mb-8">
                   <h2 className="text-2xl font-bold">
-                    {requiresDoctorLocation
-                      ? "Complete Doctor Profile"
+                    {requiresProviderLocation
+                      ? "Complete Profile"
                       : isSignUp
                         ? "Create Account"
                         : "Welcome Back"}
                   </h2>
                   <p className="text-muted-foreground mt-2">
-                    {requiresDoctorLocation
+                    {requiresProviderLocation
                       ? "Add your state and district to appear in search"
                       : isSignUp
                         ? "Enter your details to get started"
@@ -357,7 +368,7 @@ export default function Auth() {
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
-                  {!requiresDoctorLocation && isSignUp && (
+                  {!requiresProviderLocation && isSignUp && (
                     <div className="relative">
                       <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                       <Input
@@ -370,7 +381,7 @@ export default function Auth() {
                       />
                     </div>
                   )}
-                  {!requiresDoctorLocation && (
+                  {!requiresProviderLocation && (
                     <>
                       <div className="relative">
                         <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
@@ -399,7 +410,7 @@ export default function Auth() {
                     </>
                   )}
 
-                  {(isSignUp && selectedRole === "doctor") || requiresDoctorLocation ? (
+                  {(isSignUp && isProviderRole) || requiresProviderLocation ? (
                     <>
                       <div>
                         <Select
@@ -435,7 +446,7 @@ export default function Auth() {
                   ) : null}
 
                   <Button type="submit" size="lg" variant="hero" className="w-full">
-                    {requiresDoctorLocation
+                    {requiresProviderLocation
                       ? "Save Location"
                       : isSignUp
                         ? "Create Account"
@@ -443,7 +454,7 @@ export default function Auth() {
                     <ArrowRight className="ml-2 h-5 w-5" />
                   </Button>
 
-                  {!requiresDoctorLocation && (
+                  {!requiresProviderLocation && (
                     <div className="relative my-4">
                     <div className="absolute inset-0 flex items-center">
                       <span className="w-full border-t" />
@@ -456,7 +467,7 @@ export default function Auth() {
                     </div>
                   )}
 
-                  {!requiresDoctorLocation && (
+                  {!requiresProviderLocation && (
                     <Button variant="outline" type="button" className="w-full" onClick={() => window.location.href = 'http://localhost:3000/api/auth/google'}>
                       <svg className="mr-2 h-4 w-4" aria-hidden="true" focusable="false" data-prefix="fab" data-icon="google" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 488 512"><path fill="currentColor" d="M488 261.8C488 403.3 391.1 504 248 504 110.8 504 0 393.2 0 256S110.8 8 248 8c66.8 0 123 24.5 166.3 64.9l-67.5 64.9C258.5 52.6 94.3 116.6 94.3 256c0 86.5 69.1 156.6 153.7 156.6 98.2 0 135-70.4 140.8-106.9H248v-85.3h236.1c2.3 12.7 3.9 24.9 3.9 41.4z"></path></svg>
                       Google

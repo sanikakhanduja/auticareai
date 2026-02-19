@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Bot, Shield, Users, Brain, ArrowRight, CheckCircle2 } from "lucide-react";
+import { Bot, Shield, Users, Brain, ArrowRight, CheckCircle2, HeartPulse, Activity } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export default function Index() {
@@ -25,10 +25,30 @@ export default function Index() {
   ];
 
   const agents = [
-    { name: "Screening Agent", color: "bg-agent-screening" },
-    { name: "Clinical Summary Agent", color: "bg-agent-clinical" },
-    { name: "Therapy Planning Agent", color: "bg-agent-therapy" },
-    { name: "Monitoring Agent", color: "bg-agent-monitoring" },
+    {
+      name: "Screening Agent",
+      color: "bg-agent-screening",
+      icon: Bot,
+      description: "Analyzes behavior patterns from screening inputs.",
+    },
+    {
+      name: "Clinical Summary Agent",
+      color: "bg-agent-clinical",
+      icon: Brain,
+      description: "Builds structured clinical summaries for doctors.",
+    },
+    {
+      name: "Therapy Planning Agent",
+      color: "bg-agent-therapy",
+      icon: HeartPulse,
+      description: "Suggests therapy direction and session focus.",
+    },
+    {
+      name: "Monitoring Agent",
+      color: "bg-agent-monitoring",
+      icon: Activity,
+      description: "Tracks child progress and trend indicators.",
+    },
   ];
 
   return (
@@ -104,13 +124,46 @@ export default function Index() {
                     className={`h-16 w-16 rounded-2xl ${agent.color} flex items-center justify-center mb-3 animate-float`}
                     style={{ animationDelay: `${index * 0.5}s` }}
                   >
-                    <Bot className="h-8 w-8 text-white" />
+                    <agent.icon className="h-8 w-8 text-white" />
                   </div>
                   <p className="text-sm font-medium text-center">{agent.name}</p>
                 </motion.div>
               ))}
             </div>
           </motion.div>
+        </div>
+      </section>
+
+      {/* Agents Section */}
+      <section className="py-16">
+        <div className="container max-w-5xl mx-auto px-4">
+          <div className="text-center mb-10">
+            <h2 className="text-3xl font-bold mb-3">All 4 AI Agents</h2>
+            <p className="text-muted-foreground">
+              The platform runs all four agents together during screening and care workflows.
+            </p>
+          </div>
+          <div className="grid gap-5 md:grid-cols-2">
+            {agents.map((agent, index) => (
+              <motion.div
+                key={agent.name}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.08 }}
+                className="rounded-2xl border border-border bg-card p-5 shadow-card"
+              >
+                <div className="flex items-start gap-4">
+                  <div className={`h-12 w-12 rounded-xl ${agent.color} flex items-center justify-center shrink-0`}>
+                    <agent.icon className="h-6 w-6 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold">{agent.name}</h3>
+                    <p className="text-sm text-muted-foreground mt-1">{agent.description}</p>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
         </div>
       </section>
 

@@ -298,21 +298,13 @@ export default function Progress() {
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={progressData}>
                   <defs>
-                    <linearGradient id="colorSocial" x1="0" y1="0" x2="0" y2="1">
+                    <linearGradient id="colorRiskScore" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="hsl(262, 60%, 65%)" stopOpacity={0.3} />
                       <stop offset="95%" stopColor="hsl(262, 60%, 65%)" stopOpacity={0} />
                     </linearGradient>
-                    <linearGradient id="colorComm" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="hsl(174, 62%, 47%)" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="hsl(174, 62%, 47%)" stopOpacity={0} />
-                    </linearGradient>
-                    <linearGradient id="colorMotor" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="hsl(15, 90%, 65%)" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="hsl(15, 90%, 65%)" stopOpacity={0} />
-                    </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" />
+                  <XAxis dataKey="label" stroke="hsl(var(--muted-foreground))" />
                   <YAxis stroke="hsl(var(--muted-foreground))" domain={[0, 100]} />
                   <Tooltip
                     contentStyle={{
@@ -323,30 +315,12 @@ export default function Progress() {
                   />
                   <Area
                     type="monotone"
-                    dataKey="social"
+                    dataKey="riskScore"
                     stroke="hsl(262, 60%, 65%)"
                     fillOpacity={1}
-                    fill="url(#colorSocial)"
-                    name="Social Skills"
+                    fill="url(#colorRiskScore)"
+                    name="Risk Score"
                   />
-                  <Area
-                    type="monotone"
-                    dataKey="communication"
-                    stroke="hsl(174, 62%, 47%)"
-                    fillOpacity={1}
-                    fill="url(#colorComm)"
-                    name="Communication"
-                  />
-                  {(isTherapist || isDoctor) && (
-                    <Area
-                      type="monotone"
-                      dataKey="motor"
-                      stroke="hsl(15, 90%, 65%)"
-                      fillOpacity={1}
-                      fill="url(#colorMotor)"
-                      name="Motor Skills"
-                    />
-                  )}
                 </AreaChart>
               </ResponsiveContainer>
             </div>
@@ -355,18 +329,8 @@ export default function Progress() {
             <div className="flex flex-wrap gap-4 mt-4 pt-4 border-t border-border">
               <div className="flex items-center gap-2">
                 <div className="h-3 w-3 rounded-full bg-agent-screening" />
-                <span className="text-sm">Social Skills</span>
+                <span className="text-sm">Risk Score Trend</span>
               </div>
-              <div className="flex items-center gap-2">
-                <div className="h-3 w-3 rounded-full bg-primary" />
-                <span className="text-sm">Communication</span>
-              </div>
-              {(isTherapist || isDoctor) && (
-                <div className="flex items-center gap-2">
-                  <div className="h-3 w-3 rounded-full bg-secondary" />
-                  <span className="text-sm">Motor Skills</span>
-                </div>
-              )}
             </div>
           </div>
 
