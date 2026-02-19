@@ -29,6 +29,7 @@ export default function Auth() {
     name: "",
     email: "",
     password: "",
+    specialty: "",
     state: "",
     district: "",
   });
@@ -96,6 +97,33 @@ export default function Auth() {
     "West Bengal",
   ];
 
+  const doctorSpecializations = [
+    "Pediatric Neurology",
+    "Child and Adolescent",
+    "Psychiatry",
+    "Developmental Pediatrics",
+    "Clinical Psychology",
+    "Neuropsychology",
+    "General",
+  ];
+
+  const therapistSpecializations = [
+    "Speech-Language Pathology",
+    "Occupational Therapy",
+    "Applied Behavior Analysis (ABA Therapist / BCBA)",
+    "Special Education (Autism-specific)",
+    "Behavioral Therapist",
+    "Sensory Integration Therapist",
+    "General",
+  ];
+
+  const specializationOptions =
+    selectedRole === "doctor"
+      ? doctorSpecializations
+      : selectedRole === "therapist"
+        ? therapistSpecializations
+        : [];
+
   const handleRoleSelect = (role: UserRole) => {
     setSelectedRole(role);
   };
@@ -111,14 +139,15 @@ export default function Auth() {
     if (!selectedRole && isSignUp) return; // Role is required for signup
 
     if (requiresProviderLocation && pendingProviderId) {
-      if (!formData.state || !formData.district) {
-        alert("Please select a state and enter a district.");
+      if (!formData.state || !formData.district || !formData.specialty) {
+        alert("Please select specialization, state and district.");
         return;
       }
 
-      const { error } = await profilesService.updateLocation(pendingProviderId, {
+      const { error } = await profilesService.updateProviderProfile(pendingProviderId, {
         state: formData.state,
         district: formData.district,
+        specialty: formData.specialty,
       });
 
       if (error) {
@@ -139,8 +168,8 @@ export default function Auth() {
     }
 
     if (isSignUp && isProviderRole) {
-      if (!formData.state || !formData.district) {
-        alert("Please select a state and enter a district.");
+      if (!formData.specialty || !formData.state || !formData.district) {
+        alert("Please select specialization, state and district.");
         return;
       }
     }
@@ -154,6 +183,7 @@ export default function Auth() {
           selectedRole as UserRole,
           isProviderRole
             ? {
+                specialty: formData.specialty,
                 state: formData.state,
                 district: formData.district,
               }
@@ -199,9 +229,18 @@ export default function Auth() {
         const role = profile?.profile?.role || "parent";
 
         const roleNeedsLocation = role === "doctor" || role === "therapist";
-        if (roleNeedsLocation && (!profile?.profile?.state || !profile?.profile?.district)) {
+        if (
+          roleNeedsLocation &&
+          (!profile?.profile?.state || !profile?.profile?.district || !profile?.profile?.specialty)
+        ) {
           const providerRole = role as "doctor" | "therapist";
           setSelectedRole(providerRole);
+          setFormData((prev) => ({
+            ...prev,
+            specialty: profile?.profile?.specialty || "",
+            state: profile?.profile?.state || "",
+            district: profile?.profile?.district || "",
+          }));
           setRequiresProviderLocation(true);
           setPendingProviderId(profile?.id || data.user?.id || null);
           setPendingProviderRole(providerRole);
@@ -412,6 +451,25 @@ export default function Auth() {
 
                   {(isSignUp && isProviderRole) || requiresProviderLocation ? (
                     <>
+                      <div>
+                        <Select
+                          value={formData.specialty}
+                          onValueChange={(value) =>
+                            setFormData({ ...formData, specialty: value })
+                          }
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select Specialization" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {specializationOptions.map((specialty) => (
+                              <SelectItem key={specialty} value={specialty}>
+                                {specialty}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
                       <div>
                         <Select
                           value={formData.state}

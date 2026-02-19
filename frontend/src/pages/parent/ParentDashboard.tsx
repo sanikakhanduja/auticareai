@@ -19,7 +19,54 @@ import { ChildCard } from "@/components/ChildCard";
 import { AgentBadge } from "@/components/AgentBadge";
 import { Child, useAppStore } from "@/lib/store";
 import { authService } from "@/services/auth";
-import { childProgressFeedbackService, childrenService, therapySessionsService, notificationsService } from "@/services/data";
+import { childProgressFeedbackService, childrenService, therapySessionsService, notificationsService, profilesService } from "@/services/data";
+
+const MEET_LINK_REGEX = /(https:\/\/meet\.google\.com\/[a-zA-Z0-9-]+)/;
+const SESSION_DURATION_MS = 60 * 60 * 1000;
+const TIME_VALUE_REGEX = /^\d{2}:\d{2}(?::\d{2})?$/;
+
+const parseSessionStart = (scheduledDate: string, scheduledTime: string) => {
+  return new Date(`${scheduledDate}T${scheduledTime}`);
+};
+
+const parseSessionMeta = (notes?: string | null): Record<string, any> => {
+  if (!notes) return {};
+  try {
+    const parsed = JSON.parse(notes);
+    return typeof parsed === "object" && parsed ? parsed : {};
+  } catch {
+    return {};
+  }
+};
+
+const extractSessionEndTimeFromNotes = (notes?: string | null) => {
+  const parsed = parseSessionMeta(notes);
+  if (typeof parsed.sessionEndTime === "string" && TIME_VALUE_REGEX.test(parsed.sessionEndTime)) {
+    return parsed.sessionEndTime;
+  }
+  return null;
+};
+
+const getSessionEndTime = (scheduledDate: string, scheduledTime: string, notes?: string | null) => {
+  const explicitEndTime = extractSessionEndTimeFromNotes(notes);
+  if (explicitEndTime) return parseSessionStart(scheduledDate, explicitEndTime).getTime();
+  return parseSessionStart(scheduledDate, scheduledTime).getTime() + SESSION_DURATION_MS;
+};
+
+const extractSessionLinkFromNotes = (notes?: string | null) => {
+  if (!notes) return "";
+  try {
+    const parsed = JSON.parse(notes);
+    if (typeof parsed?.googleMeetLink === "string" && parsed.googleMeetLink) {
+      const meetMatch = parsed.googleMeetLink.match(MEET_LINK_REGEX);
+      if (meetMatch) return meetMatch[1];
+    }
+  } catch {
+    const meetMatch = notes.match(MEET_LINK_REGEX);
+    if (meetMatch) return meetMatch[1];
+  }
+  return "";
+};
 
 export default function ParentDashboard() {
   const navigate = useNavigate();
@@ -31,6 +78,16 @@ export default function ParentDashboard() {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [progressFeedbacks, setProgressFeedbacks] = useState<any[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [currentTime, setCurrentTime] = useState(() => Date.now());
+  const [doctorNameById, setDoctorNameById] = useState<Record<string, string>>({});
+  const [therapistNameById, setTherapistNameById] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setCurrentTime(Date.now());
+    }, 30000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     const loadUser = async () => {
@@ -69,6 +126,29 @@ export default function ParentDashboard() {
     };
 
     loadChildren();
+  }, []);
+
+  useEffect(() => {
+    const loadProfessionals = async () => {
+      const [{ data: doctors }, { data: therapists }] = await Promise.all([
+        profilesService.getDoctors(),
+        profilesService.getTherapists(),
+      ]);
+
+      const doctorMap: Record<string, string> = {};
+      (doctors || []).forEach((d: any) => {
+        doctorMap[d.id] = d.full_name || "Doctor";
+      });
+      setDoctorNameById(doctorMap);
+
+      const therapistMap: Record<string, string> = {};
+      (therapists || []).forEach((t: any) => {
+        therapistMap[t.id] = t.full_name || "Therapist";
+      });
+      setTherapistNameById(therapistMap);
+    };
+
+    loadProfessionals();
   }, []);
 
   useEffect(() => {
@@ -151,6 +231,21 @@ export default function ParentDashboard() {
       color: "bg-success/20",
     },
   ];
+
+  const scheduledSessions = useMemo(() => {
+    return sessions
+      .filter((session) => {
+        if (session.status !== "scheduled") return false;
+        const start = parseSessionStart(session.scheduled_date, session.scheduled_time).getTime();
+        const end = getSessionEndTime(session.scheduled_date, session.scheduled_time, session.notes);
+        return end >= currentTime;
+      })
+      .sort((a, b) => {
+        const aStart = parseSessionStart(a.scheduled_date, a.scheduled_time).getTime();
+        const bStart = parseSessionStart(b.scheduled_date, b.scheduled_time).getTime();
+        return aStart - bStart;
+      });
+  }, [sessions, currentTime]);
 
   return (
     <DashboardLayout>
@@ -298,12 +393,13 @@ export default function ParentDashboard() {
             Upcoming Therapy Sessions
           </h2>
           <div className="space-y-3">
-            {sessions
-              .filter(s => s.status === 'scheduled' && new Date(s.scheduled_date) >= new Date())
-              .sort((a, b) => new Date(a.scheduled_date).getTime() - new Date(b.scheduled_date).getTime())
-              .slice(0, 3)
-              .map((session, index) => {
+            {scheduledSessions.slice(0, 3).map((session, index) => {
                 const child = mappedChildren.find(c => c.id === session.child_id);
+                const startTime = parseSessionStart(session.scheduled_date, session.scheduled_time).getTime();
+                const sessionEndTimeLabel = extractSessionEndTimeFromNotes(session.notes);
+                const endTime = getSessionEndTime(session.scheduled_date, session.scheduled_time, session.notes);
+                const isJoinWindowOpen = currentTime >= startTime && currentTime <= endTime;
+                const sessionLink = extractSessionLinkFromNotes(session.notes);
                 return (
                   <motion.div
                     key={session.id}
@@ -312,7 +408,7 @@ export default function ParentDashboard() {
                     transition={{ delay: index * 0.1 }}
                     className="rounded-xl border border-border bg-card p-4"
                   >
-                    <div className="flex items-start justify-between">
+                    <div className="flex items-start justify-between gap-4">
                       <div className="flex gap-3">
                         <div className="h-10 w-10 rounded-lg bg-secondary/10 flex items-center justify-center">
                           <Video className="h-5 w-5 text-secondary" />
@@ -328,17 +424,35 @@ export default function ParentDashboard() {
                             <span className="flex items-center gap-1">
                               <Clock className="h-3 w-3" />
                               {session.scheduled_time}
+                              {sessionEndTimeLabel ? ` - ${sessionEndTimeLabel}` : ""}
                             </span>
                           </div>
                         </div>
                       </div>
-                      <span className="text-xs bg-secondary/10 text-secondary px-3 py-1 rounded-full font-medium">
-                        Scheduled
-                      </span>
+                      <div className="flex flex-col items-end gap-2">
+                        <span className="text-xs bg-secondary/10 text-secondary px-3 py-1 rounded-full font-medium">
+                          Scheduled
+                        </span>
+                        <Button
+                          size="sm"
+                          disabled={!isJoinWindowOpen || !sessionLink}
+                          onClick={() => {
+                            if (!isJoinWindowOpen || !sessionLink) return;
+                            window.open(sessionLink, "_blank");
+                          }}
+                        >
+                          Join Session
+                        </Button>
+                      </div>
                     </div>
                   </motion.div>
                 );
               })}
+            {scheduledSessions.length === 0 && (
+              <div className="rounded-xl border border-border bg-card p-4 text-sm text-muted-foreground">
+                No upcoming or active sessions right now.
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -376,6 +490,10 @@ export default function ParentDashboard() {
               >
                 <ChildCard
                   child={child}
+                  assignedDoctorName={child.assignedDoctorId ? doctorNameById[child.assignedDoctorId] || null : null}
+                  assignedTherapistName={child.assignedTherapistId ? therapistNameById[child.assignedTherapistId] || null : null}
+                  onFindDoctor={() => navigate("/parent/find?tab=doctors")}
+                  onFindTherapist={() => navigate("/parent/find?tab=therapists")}
                   onClick={() => {
                     setSelectedChildId(child.id);
                     navigate(`/parent/children/${child.id}`);

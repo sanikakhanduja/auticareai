@@ -6,7 +6,7 @@ import { DashboardLayout } from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { ChildCard } from "@/components/ChildCard";
 import { Child, useAppStore } from "@/lib/store";
-import { childrenService } from "@/services/data";
+import { childrenService, profilesService } from "@/services/data";
 
 export default function ChildrenList() {
   const navigate = useNavigate();
@@ -14,6 +14,8 @@ export default function ChildrenList() {
   const [children, setChildren] = useState<Child[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [doctorNameById, setDoctorNameById] = useState<Record<string, string>>({});
+  const [therapistNameById, setTherapistNameById] = useState<Record<string, string>>({});
 
   useEffect(() => {
     const loadChildren = async () => {
@@ -44,6 +46,29 @@ export default function ChildrenList() {
     };
 
     loadChildren();
+  }, []);
+
+  useEffect(() => {
+    const loadProfessionals = async () => {
+      const [{ data: doctors }, { data: therapists }] = await Promise.all([
+        profilesService.getDoctors(),
+        profilesService.getTherapists(),
+      ]);
+
+      const doctorMap: Record<string, string> = {};
+      (doctors || []).forEach((d: any) => {
+        doctorMap[d.id] = d.full_name || "Doctor";
+      });
+      setDoctorNameById(doctorMap);
+
+      const therapistMap: Record<string, string> = {};
+      (therapists || []).forEach((t: any) => {
+        therapistMap[t.id] = t.full_name || "Therapist";
+      });
+      setTherapistNameById(therapistMap);
+    };
+
+    loadProfessionals();
   }, []);
 
   const mappedChildren = useMemo(() => {
@@ -96,6 +121,10 @@ export default function ChildrenList() {
             >
               <ChildCard
                 child={child}
+                assignedDoctorName={child.assignedDoctorId ? doctorNameById[child.assignedDoctorId] || null : null}
+                assignedTherapistName={child.assignedTherapistId ? therapistNameById[child.assignedTherapistId] || null : null}
+                onFindDoctor={() => navigate("/parent/find?tab=doctors")}
+                onFindTherapist={() => navigate("/parent/find?tab=therapists")}
                 onClick={() => {
                   setSelectedChildId(child.id);
                   navigate(`/parent/children/${child.id}`);

@@ -10,9 +10,22 @@ interface ChildCardProps {
   onClick?: () => void;
   showActions?: boolean;
   className?: string;
+  assignedDoctorName?: string | null;
+  assignedTherapistName?: string | null;
+  onFindDoctor?: () => void;
+  onFindTherapist?: () => void;
 }
 
-export function ChildCard({ child, onClick, showActions = true, className }: ChildCardProps) {
+export function ChildCard({
+  child,
+  onClick,
+  showActions = true,
+  className,
+  assignedDoctorName,
+  assignedTherapistName,
+  onFindDoctor,
+  onFindTherapist,
+}: ChildCardProps) {
   return (
     <motion.div
       whileHover={{ y: -2 }}
@@ -37,6 +50,37 @@ export function ChildCard({ child, onClick, showActions = true, className }: Chi
         <div className="flex flex-col items-end gap-2">
           <StatusBadge status={child.screeningStatus} />
           {child.riskLevel && <StatusBadge riskLevel={child.riskLevel} />}
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-2 text-sm">
+        <div className="text-muted-foreground">
+          Doctor:{" "}
+          {assignedDoctorName ? (
+            <span className="font-medium text-foreground">{assignedDoctorName}</span>
+          ) : (
+            <button
+              type="button"
+              onClick={onFindDoctor}
+              className="font-medium text-primary underline underline-offset-2"
+            >
+              Find a doctor
+            </button>
+          )}
+        </div>
+        <div className="text-muted-foreground">
+          Therapist:{" "}
+          {assignedTherapistName ? (
+            <span className="font-medium text-foreground">{assignedTherapistName}</span>
+          ) : (
+            <button
+              type="button"
+              onClick={onFindTherapist}
+              className="font-medium text-primary underline underline-offset-2"
+            >
+              Find a therapist
+            </button>
+          )}
         </div>
       </div>
 

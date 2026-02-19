@@ -25,6 +25,14 @@ export interface TherapistFeedbackInput {
   comment?: string | null;
 }
 
+export interface DoctorFeedbackInput {
+  doctorId: string;
+  parentId: string;
+  childId: string;
+  rating: number;
+  comment?: string | null;
+}
+
 export interface SecondOpinionRequestInput {
   childId: string;
   reportId: string;
@@ -47,6 +55,22 @@ export const childrenService = {
       .from('children')
       .select('*')
       .eq('is_active', true)
+      .order('created_at', { ascending: false });
+    return { data, error };
+  },
+
+  async getAssignedChildren() {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const doctorId = sessionData.session?.user?.id;
+    if (!doctorId) {
+      return { data: [], error: { message: "User not authenticated" } };
+    }
+
+    const { data, error } = await supabase
+      .from('children')
+      .select('*')
+      .eq('is_active', true)
+      .eq('assigned_doctor_id', doctorId)
       .order('created_at', { ascending: false });
     return { data, error };
   },
@@ -284,16 +308,23 @@ export const therapySessionsService = {
 
   async updateSession(id: string, updates: {
     status?: 'scheduled' | 'completed' | 'cancelled';
+    type?: 'speech' | 'motor' | 'social';
+    scheduledDate?: string;
+    scheduledTime?: string;
     goals?: string;
     notes?: string;
   }) {
+    const dbUpdates: Record<string, any> = {};
+    if (updates.status) dbUpdates.status = updates.status;
+    if (updates.type) dbUpdates.type = updates.type;
+    if (updates.scheduledDate) dbUpdates.scheduled_date = updates.scheduledDate;
+    if (updates.scheduledTime) dbUpdates.scheduled_time = updates.scheduledTime;
+    if (typeof updates.goals === "string") dbUpdates.goals = updates.goals;
+    if (typeof updates.notes === "string") dbUpdates.notes = updates.notes;
+
     const { data, error } = await supabase
       .from('therapy_sessions')
-      .update({
-        status: updates.status,
-        goals: updates.goals,
-        notes: updates.notes,
-      })
+      .update(dbUpdates)
       .eq('id', id)
       .select()
       .single();
@@ -342,6 +373,20 @@ export const profilesService = {
       })
       .eq('id', id)
       .select('id, state, district')
+      .single();
+    return { data, error };
+  },
+
+  async updateProviderProfile(id: string, input: { state: string; district: string; specialty: string }) {
+    const { data, error } = await supabase
+      .from('profiles')
+      .update({
+        state: input.state,
+        district: input.district,
+        specialty: input.specialty,
+      })
+      .eq('id', id)
+      .select('id, state, district, specialty')
       .single();
     return { data, error };
   },
@@ -429,6 +474,62 @@ export const therapistFeedbackService = {
   },
 };
 
+export const doctorFeedbackService = {
+  async getFeedbackForDoctors(doctorIds: string[]) {
+    if (doctorIds.length === 0) return { data: [], error: null } as const;
+    const { data, error } = await supabase
+      .from('doctor_feedback')
+      .select('doctor_id, rating')
+      .in('doctor_id', doctorIds);
+    return { data, error };
+  },
+
+  async hasFeedbackForDoctorAndChild(input: {
+    doctorId: string;
+    parentId: string;
+    childId: string;
+  }) {
+    const { data, error } = await supabase
+      .from('doctor_feedback')
+      .select('id')
+      .eq('doctor_id', input.doctorId)
+      .eq('parent_id', input.parentId)
+      .eq('child_id', input.childId)
+      .limit(1)
+      .maybeSingle();
+    return { data: !!data, error };
+  },
+
+  async createFeedback(input: DoctorFeedbackInput) {
+    const { data: existing, error: existingError } = await this.hasFeedbackForDoctorAndChild({
+      doctorId: input.doctorId,
+      parentId: input.parentId,
+      childId: input.childId,
+    });
+    if (existingError) {
+      return { data: null, error: existingError };
+    }
+    if (existing) {
+      return { data: null, error: { message: "Feedback already submitted for this doctor and child." } };
+    }
+
+    const { data, error } = await supabase
+      .from('doctor_feedback')
+      .insert([
+        {
+          doctor_id: input.doctorId,
+          parent_id: input.parentId,
+          child_id: input.childId,
+          rating: input.rating,
+          comment: input.comment ?? null,
+        },
+      ])
+      .select()
+      .single();
+    return { data, error };
+  },
+};
+
 export const secondOpinionService = {
   async getRequestForReport(reportId: string, parentId: string) {
     const { data, error } = await supabase
@@ -481,6 +582,18 @@ export const secondOpinionService = {
         error: { message: err instanceof Error ? err.message : 'Failed to create second opinion request' } 
       };
     }
+  },
+
+  async getLatestRequestForChildForDoctor(childId: string, doctorId: string) {
+    const { data, error } = await supabase
+      .from('second_opinion_requests')
+      .select('*')
+      .eq('child_id', childId)
+      .eq('requested_doctor_id', doctorId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    return { data, error };
   },
 };
 

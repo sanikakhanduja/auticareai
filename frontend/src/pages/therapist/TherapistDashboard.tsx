@@ -12,11 +12,68 @@ import {
 } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { StatusBadge } from "@/components/StatusBadge";
 import { AgentBadge } from "@/components/AgentBadge";
 import { Child } from "@/lib/store";
 import { authService } from "@/services/auth";
 import { childrenService, therapySessionsService, notificationsService } from "@/services/data";
+
+const MEET_LINK_REGEX = /(https:\/\/meet\.google\.com\/[a-zA-Z0-9-]+)/;
+const SESSION_DURATION_MS = 60 * 60 * 1000;
+const THERAPIST_MEET_LINK_STORAGE_KEY = "therapist_default_meet_link";
+const TIME_VALUE_REGEX = /^\d{2}:\d{2}(?::\d{2})?$/;
+
+const parseSessionStart = (scheduledDate: string, scheduledTime: string) => {
+  return new Date(`${scheduledDate}T${scheduledTime}`);
+};
+
+const parseSessionMeta = (notes?: string | null): Record<string, any> => {
+  if (!notes) return {};
+  try {
+    const parsed = JSON.parse(notes);
+    return typeof parsed === "object" && parsed ? parsed : {};
+  } catch {
+    return {};
+  }
+};
+
+const extractSessionEndTimeFromNotes = (notes?: string | null) => {
+  const parsed = parseSessionMeta(notes);
+  if (typeof parsed.sessionEndTime === "string" && TIME_VALUE_REGEX.test(parsed.sessionEndTime)) {
+    return parsed.sessionEndTime;
+  }
+  return null;
+};
+
+const getSessionEndTime = (scheduledDate: string, scheduledTime: string, notes?: string | null) => {
+  const explicitEndTime = extractSessionEndTimeFromNotes(notes);
+  if (explicitEndTime) return parseSessionStart(scheduledDate, explicitEndTime).getTime();
+  const startDate = parseSessionStart(scheduledDate, scheduledTime);
+  return startDate.getTime() + SESSION_DURATION_MS;
+};
+
+const isSessionOngoing = (scheduledDate: string, scheduledTime: string, notes?: string | null) => {
+  const start = parseSessionStart(scheduledDate, scheduledTime).getTime();
+  const end = getSessionEndTime(scheduledDate, scheduledTime, notes);
+  const now = Date.now();
+  return now >= start && now <= end;
+};
+
+const extractMeetLinkFromNotes = (notes?: string | null) => {
+  if (!notes) return "";
+  try {
+    const parsed = JSON.parse(notes);
+    if (typeof parsed?.googleMeetLink === "string" && parsed.googleMeetLink) {
+      const meetMatch = parsed.googleMeetLink.match(MEET_LINK_REGEX);
+      if (meetMatch) return meetMatch[1];
+    }
+  } catch {
+    const meetMatch = notes.match(MEET_LINK_REGEX);
+    if (meetMatch) return meetMatch[1];
+  }
+  return "";
+};
 
 export default function TherapistDashboard() {
   const navigate = useNavigate();
@@ -25,6 +82,9 @@ export default function TherapistDashboard() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [defaultMeetLink, setDefaultMeetLink] = useState("");
+  const [meetLinkError, setMeetLinkError] = useState<string | null>(null);
+  const [scheduleDrafts, setScheduleDrafts] = useState<Record<string, { date: string; time: string; endTime: string }>>({});
 
   useEffect(() => {
     const loadUser = async () => {
@@ -32,6 +92,12 @@ export default function TherapistDashboard() {
       setCurrentUserId(user?.id || null);
     };
     loadUser();
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const saved = window.localStorage.getItem(THERAPIST_MEET_LINK_STORAGE_KEY);
+    if (saved) setDefaultMeetLink(saved);
   }, []);
 
   useEffect(() => {
@@ -115,66 +181,107 @@ export default function TherapistDashboard() {
       time: session.scheduled_time,
       date: session.scheduled_date,
       status: session.status,
+      meetLink: extractMeetLinkFromNotes(session.notes),
+      endTime: extractSessionEndTimeFromNotes(session.notes),
+      isOngoing: isSessionOngoing(session.scheduled_date, session.scheduled_time, session.notes),
     };
   });
 
   const handleScheduleMeeting = async (child: Child & { parentId?: string }) => {
     if (!currentUserId) return;
-    
-    // Create Google Calendar event with Google Meet
-    const startDate = new Date();
-    startDate.setHours(startDate.getHours() + 24); // Tomorrow at same time
-    const endDate = new Date(startDate);
-    endDate.setHours(endDate.getHours() + 1); // 1 hour session
+    const draft = scheduleDrafts[child.id];
+    if (!draft?.date || !draft?.time || !draft?.endTime) {
+      setLoadError("Please select date, start time, and end time before scheduling.");
+      return;
+    }
+    if (parseSessionStart(draft.date, draft.endTime).getTime() <= parseSessionStart(draft.date, draft.time).getTime()) {
+      setLoadError("Session end time must be after start time.");
+      return;
+    }
+    if (!defaultMeetLink.trim() || !MEET_LINK_REGEX.test(defaultMeetLink.trim())) {
+      setMeetLinkError("Please add a valid Google Meet link before scheduling.");
+      return;
+    }
+    setMeetLinkError(null);
 
-    const scheduledDate = startDate.toISOString().split('T')[0]; // YYYY-MM-DD
-    const scheduledTime = startDate.toTimeString().split(' ')[0]; // HH:MM:SS
+    const sessionMeta = {
+      schedulingSource: "portal",
+      googleMeetLink: defaultMeetLink.trim(),
+      sessionEndTime: draft.endTime,
+      createdAt: new Date().toISOString(),
+    };
 
-    // Create therapy session in database
-    const { data: sessionData, error: sessionError } = await therapySessionsService.createSession({
+    const { error: sessionError } = await therapySessionsService.createSession({
       childId: child.id,
       therapistId: currentUserId,
-      type: 'social', // Default type
-      scheduledDate,
-      scheduledTime,
+      type: 'social',
+      scheduledDate: draft.date,
+      scheduledTime: draft.time,
       goals: `Online therapy session for ${child.name}`,
-      notes: 'Scheduled via Google Calendar',
+      notes: JSON.stringify(sessionMeta),
     });
 
     if (sessionError) {
-      alert('Failed to create session: ' + sessionError.message);
+      setLoadError(sessionError.message || "Failed to create session");
       return;
     }
 
-    // Create notification for parent if parentId exists
     if (child.parentId) {
       await notificationsService.createNotification({
         userId: child.parentId,
         type: 'session_scheduled',
         title: 'Therapy Session Scheduled',
-        message: `A new therapy session has been scheduled for ${child.name} on ${startDate.toLocaleDateString()} at ${startDate.toLocaleTimeString()}.`,
+        message: `A new therapy session has been scheduled for ${child.name} on ${new Date(`${draft.date}T${draft.time}`).toLocaleDateString()} at ${draft.time}.`,
         link: '/parent/dashboard',
       });
     }
 
-    // Refresh sessions list
     const { data: updatedSessions } = await therapySessionsService.getSessionsForTherapist(currentUserId);
     if (updatedSessions) {
       setSessions(updatedSessions);
     }
+    setScheduleDrafts((prev) => ({
+      ...prev,
+      [child.id]: { date: "", time: "", endTime: "" },
+    }));
+  };
 
-    const eventTitle = `Therapy Session - ${child.name}`;
-    const eventDescription = `Online therapy session for ${child.name}\n\nThis is a scheduled therapy session. Google Meet link will be automatically generated.`;
-    
-    // Format dates for Google Calendar (YYYYMMDDTHHMMSSZ)
-    const formatGoogleDate = (date: Date) => {
-      return date.toISOString().replace(/-|:|\.\d\d\d/g, '');
-    };
+  const handleSaveMeetLinkForAllSessions = async () => {
+    if (!currentUserId) return;
+    const normalized = defaultMeetLink.trim();
+    if (!normalized || !MEET_LINK_REGEX.test(normalized)) {
+      setMeetLinkError("Please enter a valid Google Meet link.");
+      return;
+    }
+    setMeetLinkError(null);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(THERAPIST_MEET_LINK_STORAGE_KEY, normalized);
+    }
 
-    const googleCalendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(eventTitle)}&dates=${formatGoogleDate(startDate)}/${formatGoogleDate(endDate)}&details=${encodeURIComponent(eventDescription)}&add=${encodeURIComponent('')}&conf=1`;
-    
-    // Open Google Calendar in new tab
-    window.open(googleCalendarUrl, '_blank');
+    const updates = sessions.map((session) => {
+      let parsed: any = {};
+      if (session.notes) {
+        try {
+          parsed = JSON.parse(session.notes);
+        } catch {
+          parsed = {};
+        }
+      }
+      return therapySessionsService.updateSession(session.id, {
+        notes: JSON.stringify({
+          ...parsed,
+          googleMeetLink: normalized,
+        }),
+      });
+    });
+    await Promise.all(updates);
+
+    const { data: refreshedSessions, error } = await therapySessionsService.getSessionsForTherapist(currentUserId);
+    if (error) {
+      setLoadError(error.message || "Failed to refresh sessions");
+      return;
+    }
+    setSessions(refreshedSessions || []);
   };
 
   const stats = [
@@ -291,12 +398,21 @@ export default function TherapistDashboard() {
                     <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
                       <Clock className="h-3 w-3" />
                       {session.time}
+                      {session.endTime ? ` - ${session.endTime}` : ""}
                     </div>
                     <span className="text-xs text-success capitalize">{session.status}</span>
                   </div>
                 </div>
                 <div className="mt-4 flex gap-2">
-                  <Button size="sm" className="flex-1">
+                  <Button
+                    size="sm"
+                    className="flex-1"
+                    disabled={!session.meetLink || !session.isOngoing}
+                    onClick={() => {
+                      if (!session.meetLink || !session.isOngoing) return;
+                      window.open(session.meetLink, "_blank");
+                    }}
+                  >
                     Start Session
                   </Button>
                   <Button size="sm" variant="outline" onClick={() => navigate(`/therapist/sessions/${session.id}/notes`)}>
@@ -318,6 +434,27 @@ export default function TherapistDashboard() {
           </div>
 
           <div className="space-y-4">
+            <div className="rounded-2xl border border-border bg-card p-4">
+              <p className="text-sm font-medium mb-2">Google Meet Link</p>
+              <Input
+                type="url"
+                value={defaultMeetLink}
+                onChange={(e) => {
+                  setDefaultMeetLink(e.target.value);
+                  if (meetLinkError) setMeetLinkError(null);
+                }}
+                placeholder="https://meet.google.com/..."
+              />
+              {meetLinkError && (
+                <p className="text-xs text-destructive mt-2">{meetLinkError}</p>
+              )}
+              <p className="text-xs text-muted-foreground mt-2">
+                Use the same link for scheduled meetings. It activates only for ongoing sessions.
+              </p>
+              <Button size="sm" variant="outline" className="mt-3" onClick={handleSaveMeetLinkForAllSessions}>
+                Save For All Sessions
+              </Button>
+            </div>
             {loading && (
               <div className="rounded-2xl border border-border bg-card p-6 text-sm text-muted-foreground">
                 Loading patients...
@@ -352,6 +489,51 @@ export default function TherapistDashboard() {
                   </Button>
                 </div>
                 <div className="mt-2">
+                  <div className="mb-2 grid grid-cols-3 gap-2">
+                    <Input
+                      type="date"
+                      value={scheduleDrafts[child.id]?.date || ""}
+                      min={new Date().toISOString().split("T")[0]}
+                      onChange={(e) =>
+                        setScheduleDrafts((prev) => ({
+                          ...prev,
+                          [child.id]: {
+                            date: e.target.value,
+                            time: prev[child.id]?.time || "",
+                            endTime: prev[child.id]?.endTime || "",
+                          },
+                        }))
+                      }
+                    />
+                    <Input
+                      type="time"
+                      value={scheduleDrafts[child.id]?.time || ""}
+                      onChange={(e) =>
+                        setScheduleDrafts((prev) => ({
+                          ...prev,
+                          [child.id]: {
+                            date: prev[child.id]?.date || "",
+                            time: e.target.value,
+                            endTime: prev[child.id]?.endTime || "",
+                          },
+                        }))
+                      }
+                    />
+                    <Input
+                      type="time"
+                      value={scheduleDrafts[child.id]?.endTime || ""}
+                      onChange={(e) =>
+                        setScheduleDrafts((prev) => ({
+                          ...prev,
+                          [child.id]: {
+                            date: prev[child.id]?.date || "",
+                            time: prev[child.id]?.time || "",
+                            endTime: e.target.value,
+                          },
+                        }))
+                      }
+                    />
+                  </div>
                   <Button
                     size="sm"
                     variant="default"
