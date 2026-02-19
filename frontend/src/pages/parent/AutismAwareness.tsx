@@ -66,22 +66,59 @@ const educationalVideos = [
   {
     title: "Understanding Autism Spectrum Disorder",
     description: "A comprehensive introduction to ASD for parents and caregivers.",
-    placeholder: "https://www.youtube.com/embed/placeholder1",
-    duration: "12 min",
+    placeholder: "https://youtu.be/gyuP7Q1fk9g?si=FM-doR6gNqlIUd2U",
+    duration: "20 min",
   },
   {
     title: "ADOS Assessment Explained",
     description: "Learn about the Autism Diagnostic Observation Schedule and what to expect.",
-    placeholder: "https://www.youtube.com/embed/placeholder2",
-    duration: "8 min",
+    placeholder: "https://youtu.be/So05QaAjkKw?si=sDg59d1JnHqAk9Vv",
+    duration: "6 min",
   },
   {
     title: "Early Intervention Strategies",
     description: "Practical techniques for supporting your child's development at home.",
-    placeholder: "https://www.youtube.com/embed/placeholder3",
-    duration: "15 min",
+    placeholder: "https://youtu.be/7ywGRqdrmkU?si=xKAA5USU4f1aIpgi",
+    duration: "23 min",
   },
 ];
+
+const getYouTubeVideoId = (url: string) => {
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.replace("www.", "");
+
+    if (host === "youtu.be") {
+      return parsed.pathname.split("/").filter(Boolean)[0] || "";
+    }
+
+    if (host === "youtube.com" || host === "m.youtube.com") {
+      if (parsed.pathname === "/watch") {
+        return parsed.searchParams.get("v") || "";
+      }
+      if (parsed.pathname.startsWith("/embed/")) {
+        return parsed.pathname.replace("/embed/", "").split("/")[0] || "";
+      }
+      if (parsed.pathname.startsWith("/shorts/")) {
+        return parsed.pathname.replace("/shorts/", "").split("/")[0] || "";
+      }
+    }
+  } catch {
+    return "";
+  }
+
+  return "";
+};
+
+const getYouTubeThumbnailUrl = (url: string) => {
+  const id = getYouTubeVideoId(url);
+  return id ? `https://img.youtube.com/vi/${id}/hqdefault.jpg` : "";
+};
+
+const getYouTubeWatchUrl = (url: string) => {
+  const id = getYouTubeVideoId(url);
+  return id ? `https://www.youtube.com/watch?v=${id}` : url;
+};
 
 const faqItems = [
   {
@@ -254,19 +291,41 @@ export default function AutismAwareness() {
         </p>
 
         <div className="grid gap-4 md:grid-cols-3">
-          {educationalVideos.map((video, index) => (
-            <motion.div
+          {educationalVideos.map((video, index) => {
+            const thumbnailUrl = getYouTubeThumbnailUrl(video.placeholder);
+            const watchUrl = getYouTubeWatchUrl(video.placeholder);
+
+            return (
+            <motion.a
               key={video.title}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.1 }}
-              className="rounded-2xl border border-border bg-card overflow-hidden shadow-card"
+              href={watchUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rounded-2xl border border-border bg-card overflow-hidden shadow-card block hover:shadow-elevated transition-shadow"
             >
               <div className="aspect-video bg-muted flex items-center justify-center relative">
                 <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-secondary/10" />
-                <div className="text-center z-10">
-                  <PlayCircle className="h-12 w-12 text-muted-foreground mb-2 mx-auto" />
-                  <span className="text-xs text-muted-foreground">Video Placeholder</span>
+                {thumbnailUrl ? (
+                  <>
+                    <img
+                      src={thumbnailUrl}
+                      alt={video.title}
+                      className="absolute inset-0 h-full w-full object-cover"
+                      loading="lazy"
+                    />
+                    <div className="absolute inset-0 bg-black/25" />
+                  </>
+                ) : (
+                  <div className="text-center z-10">
+                    <PlayCircle className="h-12 w-12 text-muted-foreground mb-2 mx-auto" />
+                    <span className="text-xs text-muted-foreground">Video</span>
+                  </div>
+                )}
+                <div className="z-10">
+                  <PlayCircle className="h-12 w-12 text-white drop-shadow" />
                 </div>
               </div>
               <div className="p-4">
@@ -276,8 +335,8 @@ export default function AutismAwareness() {
                 </div>
                 <p className="text-xs text-muted-foreground">{video.description}</p>
               </div>
-            </motion.div>
-          ))}
+            </motion.a>
+          )})}
         </div>
 
         <div className="mt-6 rounded-xl bg-muted/50 border border-border p-4">
