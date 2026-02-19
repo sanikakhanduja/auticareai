@@ -223,7 +223,7 @@ export default function Screening() {
         .map(([key]) => key.replace(/_/g, " "));
 
       setSavingStatus(true);
-      await screeningService.saveResult({
+      const { error: saveError } = await screeningService.saveResult({
         childId: selectedChildId,
         riskLevel: mappedLevel,
         indicators,
@@ -231,11 +231,17 @@ export default function Screening() {
         questionnaireAnswers: answers,
         cvReport: result,
       });
+      if (saveError) {
+        throw new Error(saveError.message || "Failed to save screening result");
+      }
 
-      await childrenService.updateChild(selectedChildId, {
+      const { error: childUpdateError } = await childrenService.updateChild(selectedChildId, {
         riskLevel: mappedLevel,
         screeningStatus: "pending-review",
       });
+      if (childUpdateError) {
+        throw new Error(childUpdateError.message || "Failed to update child status");
+      }
       setSavingStatus(false);
       setScreeningStatus("pending");
 

@@ -8,6 +8,7 @@ import doctorRoutes from './routes/doctors';
 import { supabase } from './config/supabase';
 import screeningRoutes from './routes/screening';
 import progressRoutes from './routes/progress';
+import agentsRoutes from './routes/agents';
 
 
 dotenv.config();
@@ -49,6 +50,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/doctors', doctorRoutes);
 app.use('/api/screening', screeningRoutes);
 app.use('/api/progress', progressRoutes);
+app.use('/api/agents', agentsRoutes);
 
 
 // Health Check

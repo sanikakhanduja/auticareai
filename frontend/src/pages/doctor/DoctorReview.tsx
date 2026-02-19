@@ -23,6 +23,7 @@ import { Child } from "@/lib/store";
 import { authService } from "@/services/auth";
 import { childrenService, profilesService, reportsService } from "@/services/data";
 import { cvService, CvReport } from "@/services/cv";
+import { agentsService, ClinicalSummaryResponse } from "@/services/agents";
 import {
   Dialog,
   DialogContent,
@@ -31,26 +32,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { addMonths, format } from "date-fns";
-
-const mockClinicalSummary = {
-  behavioralIndicators: [
-    { indicator: "Eye Contact", observation: "Reduced eye contact during social interaction", severity: "moderate" },
-    { indicator: "Social Engagement", observation: "Limited response to name being called", severity: "mild" },
-    { indicator: "Repetitive Behaviors", observation: "Repetitive hand movements observed", severity: "moderate" },
-    { indicator: "Communication", observation: "Delayed verbal responses", severity: "mild" },
-  ],
-  developmentalMilestones: [
-    { milestone: "Joint Attention", status: "delayed", age: "18 months" },
-    { milestone: "Pointing to Show", status: "delayed", age: "12 months" },
-    { milestone: "Pretend Play", status: "emerging", age: "24 months" },
-  ],
-  recommendedActions: [
-    "Comprehensive developmental evaluation recommended",
-    "Speech and language therapy consultation",
-    "Occupational therapy assessment",
-  ],
-};
+import { addMonths } from "date-fns";
 
 type DecisionType = "observation" | "diagnosis" | null;
 type FlowStep = "decision" | "observation-report" | "diagnosis-confirm" | "diagnosis-report" | "complete";
@@ -134,6 +116,9 @@ export default function DoctorReview() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [reportError, setReportError] = useState<string | null>(null);
   const [assignedTherapist, setAssignedTherapist] = useState<{ name: string; specialty?: string | null } | null>(null);
+  const [clinicalSummary, setClinicalSummary] = useState<ClinicalSummaryResponse | null>(null);
+  const [clinicalSummaryLoading, setClinicalSummaryLoading] = useState(false);
+  const [clinicalSummaryError, setClinicalSummaryError] = useState<string | null>(null);
 
   useEffect(() => {
     const loadChild = async () => {
@@ -218,6 +203,27 @@ export default function DoctorReview() {
 
     fetchReport();
   }, [childId]);
+
+  useEffect(() => {
+    const loadClinicalSummary = async () => {
+      if (!childId || !child) return;
+      setClinicalSummaryLoading(true);
+      setClinicalSummaryError(null);
+      try {
+        const response = await agentsService.getClinicalSummaryByChild({
+          childId,
+          role: "doctor",
+        });
+        setClinicalSummary(response.data);
+      } catch (error: any) {
+        setClinicalSummaryError(error?.message || "Failed to generate clinical summary");
+      } finally {
+        setClinicalSummaryLoading(false);
+      }
+    };
+
+    loadClinicalSummary();
+  }, [childId, child]);
 
   if (!child) {
     return (
@@ -451,73 +457,32 @@ export default function DoctorReview() {
               <h3 className="font-semibold">AI-Generated Clinical Summary</h3>
             </div>
 
-            {/* Behavioral Indicators */}
-            <div className="mb-6">
-              <h4 className="text-sm font-medium text-muted-foreground mb-3">
-                Behavioral Indicators
-              </h4>
-              <div className="space-y-3">
-                {mockClinicalSummary.behavioralIndicators.map((item, index) => (
-                  <motion.div
-                    key={index}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.1 }}
-                    className="rounded-lg bg-muted/50 p-4"
-                  >
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="font-medium">{item.indicator}</span>
-                      <span
-                        className={`text-xs px-2 py-1 rounded-full ${
-                          item.severity === "moderate"
-                            ? "bg-warning/10 text-warning"
-                            : "bg-muted text-muted-foreground"
-                        }`}
-                      >
-                        {item.severity}
-                      </span>
-                    </div>
-                    <p className="text-sm text-muted-foreground">{item.observation}</p>
-                  </motion.div>
-                ))}
-              </div>
-            </div>
+            {clinicalSummaryLoading && (
+              <p className="text-sm text-muted-foreground mb-4">Generating summary...</p>
+            )}
 
-            {/* Developmental Milestones */}
-            <div className="mb-6">
-              <h4 className="text-sm font-medium text-muted-foreground mb-3">
-                Developmental Milestones
-              </h4>
-              <div className="grid gap-3 sm:grid-cols-3">
-                {mockClinicalSummary.developmentalMilestones.map((item, index) => (
-                  <div key={index} className="rounded-lg bg-muted/50 p-4 text-center">
-                    <p className="font-medium text-sm">{item.milestone}</p>
-                    <p
-                      className={`text-xs mt-1 ${
-                        item.status === "delayed" ? "text-warning" : "text-success"
-                      }`}
-                    >
-                      {item.status}
-                    </p>
+            {clinicalSummaryError && (
+              <div className="mb-4 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+                {clinicalSummaryError}
+              </div>
+            )}
+
+            {!clinicalSummaryLoading && clinicalSummary && (
+              <>
+                <div className="rounded-lg bg-muted/50 p-4 text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
+                  {clinicalSummary.overview || "Clinical summary is not available yet."}
+                </div>
+                {clinicalSummary.keyFindings?.length ? (
+                  <div className="mt-4 space-y-2">
+                    {clinicalSummary.keyFindings.slice(0, 4).map((item, index) => (
+                      <div key={index} className="text-sm text-muted-foreground">
+                        • {item}
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Recommended Actions */}
-            <div>
-              <h4 className="text-sm font-medium text-muted-foreground mb-3">
-                AI Recommended Actions
-              </h4>
-              <ul className="space-y-2">
-                {mockClinicalSummary.recommendedActions.map((action, index) => (
-                  <li key={index} className="flex items-center gap-2 text-sm">
-                    <CheckCircle2 className="h-4 w-4 text-agent-clinical" />
-                    {action}
-                  </li>
-                ))}
-              </ul>
-            </div>
+                ) : null}
+              </>
+            )}
           </AgentPanel>
 
           {/* Doctor Decision */}

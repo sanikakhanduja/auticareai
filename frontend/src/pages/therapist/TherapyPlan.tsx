@@ -11,12 +11,17 @@ import {
   Save,
   Bot,
   Plus,
+  Sparkles,
+  CalendarRange,
+  ListChecks,
 } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { AgentPanel, AgentBadge } from "@/components/AgentBadge";
+import { Badge } from "@/components/ui/badge";
+import { AgentBadge } from "@/components/AgentBadge";
 import { Child } from "@/lib/store";
+import { agentsService, TherapyPlanningResponse } from "@/services/agents";
 import { childrenService } from "@/services/data";
 
 type TherapyArea = "speech" | "motor" | "social";
@@ -33,6 +38,14 @@ export default function TherapyPlan() {
   const [child, setChild] = useState<Child | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [agentPlan, setAgentPlan] = useState<TherapyPlanningResponse | null>(null);
+  const [agentMeta, setAgentMeta] = useState<{
+    generatedBy: "deterministic" | "gemini";
+    model?: string;
+    cached?: boolean;
+  } | null>(null);
+  const [agentLoading, setAgentLoading] = useState(false);
+  const [agentError, setAgentError] = useState<string | null>(null);
 
   useEffect(() => {
     const loadChild = async () => {
@@ -70,6 +83,27 @@ export default function TherapyPlan() {
     loadChild();
   }, [childId]);
 
+  useEffect(() => {
+    const loadPlan = async () => {
+      if (!child) return;
+      setAgentLoading(true);
+      setAgentError(null);
+      try {
+        const response = await agentsService.generateTherapyPlanningByChild({
+          childId: child.id,
+        });
+        setAgentPlan(response.data);
+        setAgentMeta(response.meta || null);
+      } catch (err: any) {
+        setAgentError(err?.message || "No diagnostic report found yet for this child.");
+      } finally {
+        setAgentLoading(false);
+      }
+    };
+
+    loadPlan();
+  }, [child]);
+
   if (!child) {
     return (
       <DashboardLayout>
@@ -85,6 +119,11 @@ export default function TherapyPlan() {
     );
   }
 
+  const allActivities = (agentPlan?.weeklyPlan || []).flatMap((week) => week.activities);
+  const allGoals = (agentPlan?.weeklyPlan || []).flatMap((week) => week.goals);
+  const joinMatches = (source: string[], keywords: string[]) =>
+    source.filter((item) => keywords.some((k) => item.toLowerCase().includes(k)));
+
   const therapyAreas = [
     {
       id: "speech" as TherapyArea,
@@ -92,7 +131,10 @@ export default function TherapyPlan() {
       icon: MessageSquare,
       color: "text-agent-therapy",
       bg: "bg-agent-therapy/10",
-      data: { aiSuggested: [], goals: [] },
+      data: {
+        aiSuggested: joinMatches(allActivities, ["speech", "communication", "verbal", "language"]),
+        goals: joinMatches(allGoals, ["speech", "communication", "verbal", "language"]),
+      },
     },
     {
       id: "motor" as TherapyArea,
@@ -100,7 +142,10 @@ export default function TherapyPlan() {
       icon: Hand,
       color: "text-primary",
       bg: "bg-primary/10",
-      data: { aiSuggested: [], goals: [] },
+      data: {
+        aiSuggested: joinMatches(allActivities, ["motor", "coordination", "movement"]),
+        goals: joinMatches(allGoals, ["motor", "coordination", "movement"]),
+      },
     },
     {
       id: "social" as TherapyArea,
@@ -108,7 +153,10 @@ export default function TherapyPlan() {
       icon: Users,
       color: "text-secondary",
       bg: "bg-secondary/10",
-      data: { aiSuggested: [], goals: [] },
+      data: {
+        aiSuggested: joinMatches(allActivities, ["social", "engagement", "attention", "interaction"]),
+        goals: joinMatches(allGoals, ["social", "engagement", "attention", "interaction"]),
+      },
     },
   ];
 
@@ -138,15 +186,73 @@ export default function TherapyPlan() {
       </div>
 
       {/* AI Agent Info */}
-      <div className="mb-8 rounded-2xl border border-agent-therapy/30 bg-agent-therapy/5 p-6">
-        <div className="flex items-start gap-4">
-          <AgentBadge type="therapy" />
-          <div>
-            <h3 className="font-semibold">AI-Suggested Plan</h3>
-            <p className="text-sm text-muted-foreground mt-1">
-              The Therapy Planning Agent has generated personalized suggestions based on screening
-              results and clinical assessment. You can edit and customize these goals.
-            </p>
+      <div className="mb-8 rounded-2xl border border-agent-therapy/30 bg-gradient-to-br from-agent-therapy/10 via-agent-therapy/5 to-background p-6 shadow-card">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
+          <div className="flex items-center gap-3">
+            <AgentBadge type="therapy" />
+            <div>
+              <h3 className="font-semibold">Therapy Planning Agent</h3>
+              <p className="text-xs text-muted-foreground">
+                AI guidance layered on top of deterministic plan structure.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge
+              variant="outline"
+              className={
+                agentMeta?.generatedBy === "gemini"
+                  ? "border-success/40 text-success"
+                  : "border-warning/40 text-warning"
+              }
+            >
+              {agentMeta?.generatedBy === "gemini" ? "Gemini Active" : "Deterministic Base"}
+            </Badge>
+            {agentMeta?.cached ? (
+              <Badge variant="outline" className="text-muted-foreground">
+                Cached
+              </Badge>
+            ) : null}
+          </div>
+        </div>
+
+        {agentError ? (
+          <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+            {agentError}
+          </div>
+        ) : null}
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="rounded-xl border border-agent-therapy/20 bg-card/70 p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Sparkles className="h-4 w-4 text-agent-therapy" />
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">AI Insight</p>
+            </div>
+            {agentLoading ? (
+              <p className="text-sm text-muted-foreground">Generating clinical paragraph...</p>
+            ) : (
+              <p className="text-sm leading-relaxed text-foreground">
+                {agentPlan?.aiInsightsParagraph ||
+                  "AI paragraph will appear here when Gemini suggestion is available."}
+              </p>
+            )}
+          </div>
+
+          <div className="rounded-xl border border-border bg-card/70 p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <ListChecks className="h-4 w-4 text-agent-therapy" />
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">Plan Snapshot</p>
+            </div>
+            <div className="space-y-1 text-sm">
+              <p className="flex items-center gap-2">
+                <CalendarRange className="h-4 w-4 text-muted-foreground" />
+                {(agentPlan?.weeklyPlan || []).length} week blocks
+              </p>
+              <p>{allGoals.length} total goals</p>
+              <p>{allActivities.length} suggested activities</p>
+              {agentMeta?.model ? <p className="text-xs text-muted-foreground">Model: {agentMeta.model}</p> : null}
+              {agentPlan?.overview ? <p className="text-xs text-muted-foreground mt-2">{agentPlan.overview}</p> : null}
+            </div>
           </div>
         </div>
       </div>
@@ -181,18 +287,22 @@ export default function TherapyPlan() {
                     AI-Suggested Activities
                   </span>
                 </div>
-                {area.data.aiSuggested.length > 0 ? (
+                {(area.data.aiSuggested.length > 0
+                  ? area.data.aiSuggested
+                  : allActivities.slice(0, 4)
+                ).length > 0 ? (
                   <ul className="space-y-2">
-                    {area.data.aiSuggested.map((suggestion, i) => (
+                    {(area.data.aiSuggested.length > 0
+                      ? area.data.aiSuggested
+                      : allActivities.slice(0, 4)
+                    ).map((suggestion, i) => (
                       <li key={i} className="flex items-start gap-2 text-sm">
                         <CheckCircle2 className="h-4 w-4 text-success mt-0.5" />
                         {suggestion}
                       </li>
                     ))}
                   </ul>
-                ) : (
-                  <p className="text-sm text-muted-foreground">No AI suggestions available yet.</p>
-                )}
+                ) : null}
               </div>
 
               {/* Goals */}

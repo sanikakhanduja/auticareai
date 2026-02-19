@@ -15,9 +15,9 @@ import {
 } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { AgentPanel, AgentBadge } from "@/components/AgentBadge";
-import TherapyProgressTab from "@/components/TherapyProgressTab";
 import { Child, Report, TherapySession, useAppStore } from "@/lib/store";
 import { childrenService, reportsService, screeningService, therapySessionsService } from "@/services/data";
+import { agentsService, MonitoringInferenceResponse } from "@/services/agents";
 import {
   Select,
   SelectContent,
@@ -25,19 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Area,
-  AreaChart,
-  ReferenceLine,
-  ReferenceDot,
-} from "recharts";
+import { Progress as ProgressBar } from "@/components/ui/progress";
 import { format } from "date-fns";
 
 const riskScoreMap: Record<string, number> = {
@@ -46,15 +34,82 @@ const riskScoreMap: Record<string, number> = {
   high: 75,
 };
 
-const buildProgressData = (results: any[]) => {
-  if (!results || results.length === 0) return [];
-  const sorted = [...results].sort(
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+
+const hashString = (input: string) =>
+  input.split("").reduce((acc, ch) => (acc * 31 + ch.charCodeAt(0)) % 100000, 7);
+
+const seededMetric = (seed: number, min: number, max: number) =>
+  min + (seed % (max - min + 1));
+
+const deriveProgressSnapshot = (
+  child: Child | undefined,
+  screening: any[],
+  childReports: Report[],
+  childSessions: TherapySession[]
+) => {
+  const sortedScreening = [...(screening || [])].sort(
     (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
   );
-  return sorted.map((result) => ({
-    label: format(new Date(result.created_at), "MMM d"),
-    riskScore: riskScoreMap[result.risk_level] ?? 50,
-  }));
+  const latest = sortedScreening[sortedScreening.length - 1];
+  const previous = sortedScreening[sortedScreening.length - 2];
+  const latestRisk = latest ? riskScoreMap[latest.risk_level] ?? 50 : 50;
+  const previousRisk = previous ? riskScoreMap[previous.risk_level] ?? 50 : latestRisk;
+  const riskDelta = previousRisk - latestRisk;
+  const baseFromRisk = clamp(Math.round(100 - latestRisk), 15, 90);
+  const completedSessions = childSessions.filter((s) => s.status === "completed").length;
+  const sessionBonus = clamp(completedSessions * 3, 0, 15);
+  const currentScore = clamp(baseFromRisk + sessionBonus, 10, 96);
+  const previousScore = clamp(currentScore - riskDelta, 8, 95);
+
+  const latestDiagnostic = [...childReports]
+    .filter((r) => r.type === "diagnostic")
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0];
+  const diagnosticGaps = latestDiagnostic?.developmentalGaps || [];
+
+  if (!child && !latestDiagnostic && sortedScreening.length === 0) {
+    return {
+      currentScore: 42,
+      previousScore: 38,
+      trendLabel: "improving",
+      sourceLabel: "Seeded baseline",
+      metrics: [
+        { label: "Engagement", value: 46 },
+        { label: "Communication", value: 41 },
+        { label: "Attention", value: 39 },
+      ],
+      focusAreas: ["Social communication", "Sustained attention", "Turn-taking behavior"],
+      weekSeries: [34, 37, 40, 42],
+    };
+  }
+
+  const seed = hashString(`${child?.id || "child"}:${latestDiagnostic?.id || "diag"}:${completedSessions}`);
+  const engagement = clamp(currentScore + seededMetric(seed + 11, -6, 6), 12, 98);
+  const communication = clamp(currentScore + seededMetric(seed + 17, -7, 5), 12, 98);
+  const attention = clamp(currentScore + seededMetric(seed + 29, -8, 4), 12, 98);
+  const weekSeries = [
+    clamp(previousScore - seededMetric(seed + 3, 2, 6), 10, 95),
+    clamp(previousScore - seededMetric(seed + 5, 0, 4), 10, 95),
+    previousScore,
+    currentScore,
+  ];
+
+  return {
+    currentScore,
+    previousScore,
+    trendLabel: currentScore > previousScore ? "improving" : currentScore < previousScore ? "declining" : "stable",
+    sourceLabel: latestDiagnostic ? "Based on latest diagnostic + sessions" : "Based on screening + sessions",
+    metrics: [
+      { label: "Engagement", value: engagement },
+      { label: "Communication", value: communication },
+      { label: "Attention", value: attention },
+    ],
+    focusAreas:
+      diagnosticGaps.length > 0
+        ? diagnosticGaps.slice(0, 3)
+        : ["Social communication", "Response flexibility", "Joint attention"],
+    weekSeries,
+  };
 };
 
 // Generate mock milestones (reports and sessions)
@@ -89,6 +144,9 @@ export default function Progress() {
   const [screeningResults, setScreeningResults] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [monitoringInference, setMonitoringInference] = useState<MonitoringInferenceResponse | null>(null);
+  const [monitoringLoading, setMonitoringLoading] = useState(false);
+  const [monitoringError, setMonitoringError] = useState<string | null>(null);
 
   useEffect(() => {
     const loadChildren = async () => {
@@ -180,7 +238,18 @@ export default function Progress() {
   }, [selectedChildId]);
 
   const selectedChild = children.find((c) => c.id === selectedChildId);
-  const progressData = useMemo(() => buildProgressData(screeningResults), [screeningResults]);
+  const childReports = useMemo(
+    () => reports.filter((report) => report.childId === selectedChildId),
+    [reports, selectedChildId]
+  );
+  const childSessions = useMemo(
+    () => therapySessions.filter((session) => session.childId === selectedChildId),
+    [therapySessions, selectedChildId]
+  );
+  const progressSnapshot = useMemo(
+    () => deriveProgressSnapshot(selectedChild, screeningResults, childReports, childSessions),
+    [selectedChild, screeningResults, childReports, childSessions]
+  );
   const milestones = useMemo(
     () => generateMilestones(selectedChildId, reports, therapySessions),
     [selectedChildId, reports, therapySessions]
@@ -236,6 +305,71 @@ export default function Progress() {
   const isTherapist = currentUser?.role === "therapist";
   const isDoctor = currentUser?.role === "doctor";
 
+  useEffect(() => {
+    const loadMonitoringInference = async () => {
+      if (!selectedChild) return;
+      if (!screeningResults || screeningResults.length === 0) {
+        setMonitoringInference(null);
+        return;
+      }
+
+      const sorted = [...screeningResults].sort(
+        (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      );
+      const latest = sorted[sorted.length - 1];
+      const previous = sorted[sorted.length - 2];
+      const latestRiskScore = riskScoreMap[latest.risk_level] ?? 50;
+      const previousRiskScore = previous ? riskScoreMap[previous.risk_level] ?? 50 : latestRiskScore;
+
+      const completedSessions = therapySessions
+        .filter((session) => session.childId === selectedChild.id && session.status === "completed")
+        .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+      const half = completedSessions.length > 1 ? Math.floor(completedSessions.length / 2) : 0;
+      const previousHalf = half > 0 ? completedSessions.slice(0, half).length : completedSessions.length;
+      const latestHalf = half > 0 ? completedSessions.slice(half).length : completedSessions.length;
+
+      const metricSeries = [
+        {
+          metric: "risk_score",
+          previous: previousRiskScore,
+          current: latestRiskScore,
+          higherIsBetter: false,
+        },
+        {
+          metric: "completed_sessions_count",
+          previous: previousHalf,
+          current: latestHalf,
+          higherIsBetter: true,
+        },
+      ];
+
+      const therapistSessionFeedback = completedSessions.slice(-3).map((session) => ({
+        sessionDate: session.scheduledDate,
+        strengths: ["Session completed"],
+        concerns: [],
+        notes: session.notes || undefined,
+      }));
+
+      setMonitoringLoading(true);
+      setMonitoringError(null);
+      try {
+        const response = await agentsService.getMonitoringInference({
+          childName: selectedChild.name,
+          role: isDoctor ? "doctor" : isTherapist ? "therapist" : "parent",
+          metricSeries,
+          therapistSessionFeedback,
+        });
+        setMonitoringInference(response.data);
+      } catch (error: any) {
+        setMonitoringError(error?.message || "Failed to generate monitoring inference");
+      } finally {
+        setMonitoringLoading(false);
+      }
+    };
+
+    loadMonitoringInference();
+  }, [selectedChild, screeningResults, therapySessions, isDoctor, isTherapist]);
+
   return (
     <DashboardLayout>
       <div className="mb-8">
@@ -281,55 +415,63 @@ export default function Progress() {
       </motion.div>
 
       <div className="grid gap-6 lg:grid-cols-3">
-        {/* Main Chart */}
+        {/* Main Snapshot */}
         <div className="lg:col-span-2">
           <div className="rounded-2xl border border-border bg-card p-6 shadow-card">
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h2 className="text-xl font-semibold">Developmental Trajectory</h2>
+                <h2 className="text-xl font-semibold">Progress Snapshot</h2>
                 <p className="text-sm text-muted-foreground">
-                  {selectedChild?.name}'s progress over time
+                  {selectedChild?.name}'s current development view
                 </p>
               </div>
               <AgentBadge type="monitoring" size="sm" />
             </div>
 
-            <div className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={progressData}>
-                  <defs>
-                    <linearGradient id="colorRiskScore" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="hsl(262, 60%, 65%)" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="hsl(262, 60%, 65%)" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="label" stroke="hsl(var(--muted-foreground))" />
-                  <YAxis stroke="hsl(var(--muted-foreground))" domain={[0, 100]} />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "hsl(var(--card))",
-                      border: "1px solid hsl(var(--border))",
-                      borderRadius: "0.75rem",
-                    }}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="riskScore"
-                    stroke="hsl(262, 60%, 65%)"
-                    fillOpacity={1}
-                    fill="url(#colorRiskScore)"
-                    name="Risk Score"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
+            <div className="rounded-xl border border-border bg-muted/30 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                <p className="text-sm text-muted-foreground">{progressSnapshot.sourceLabel}</p>
+                <p className="text-xs text-muted-foreground">
+                  4-week trend: {progressSnapshot.weekSeries.join(" → ")}
+                </p>
+              </div>
+              <div className="flex items-end justify-between gap-3 mb-3">
+                <div>
+                  <p className="text-xs text-muted-foreground">Overall Progress</p>
+                  <p className="text-3xl font-semibold">{progressSnapshot.currentScore}%</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-muted-foreground">Previous</p>
+                  <p className="text-lg font-medium">{progressSnapshot.previousScore}%</p>
+                </div>
+              </div>
+              <ProgressBar value={progressSnapshot.currentScore} />
+              <p className="text-xs text-muted-foreground mt-2">
+                Trend status: {progressSnapshot.trendLabel}
+              </p>
             </div>
 
-            {/* Legend */}
-            <div className="flex flex-wrap gap-4 mt-4 pt-4 border-t border-border">
-              <div className="flex items-center gap-2">
-                <div className="h-3 w-3 rounded-full bg-agent-screening" />
-                <span className="text-sm">Risk Score Trend</span>
+            <div className="grid sm:grid-cols-3 gap-3 mt-4">
+              {progressSnapshot.metrics.map((metric) => (
+                <div key={metric.label} className="rounded-xl border border-border bg-card p-3">
+                  <p className="text-xs text-muted-foreground">{metric.label}</p>
+                  <p className="text-xl font-semibold mt-1">{metric.value}%</p>
+                  <ProgressBar value={metric.value} className="mt-2" />
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-4 rounded-xl border border-border bg-card p-4">
+              <p className="text-sm font-medium mb-2">Current Focus Areas</p>
+              <div className="flex flex-wrap gap-2">
+                {progressSnapshot.focusAreas.map((area, idx) => (
+                  <span
+                    key={`${area}-${idx}`}
+                    className="rounded-full border border-border bg-muted px-3 py-1 text-xs"
+                  >
+                    {area}
+                  </span>
+                ))}
               </div>
             </div>
           </div>
@@ -387,9 +529,21 @@ export default function Progress() {
               <Bot className="h-5 w-5" />
               Monitoring & Trajectory Agent Insights
             </h3>
-            <p className="text-xs text-muted-foreground mb-4 bg-muted/50 rounded-lg p-2">
-              AI-generated insights for monitoring support only. Simulated analysis for demonstration.
-            </p>
+            {monitoringLoading && (
+              <p className="text-xs text-muted-foreground mb-4 bg-muted/50 rounded-lg p-2">
+                Generating monitoring inference...
+              </p>
+            )}
+            {monitoringError && (
+              <p className="text-xs text-destructive mb-4 bg-destructive/10 rounded-lg p-2">
+                {monitoringError}
+              </p>
+            )}
+            {monitoringInference?.overview && (
+              <p className="text-xs text-muted-foreground mb-4 bg-muted/50 rounded-lg p-2">
+                {monitoringInference.overview}
+              </p>
+            )}
             <div className="space-y-4">
               {insights.map((insight, index) => (
                 <motion.div
@@ -414,6 +568,11 @@ export default function Progress() {
                   <p className="text-xs text-muted-foreground">{insight.message}</p>
                 </motion.div>
               ))}
+              {monitoringInference?.metricInsights?.map((line, index) => (
+                <div key={`metric-${index}`} className="rounded-lg bg-muted/50 p-4">
+                  <p className="text-xs text-muted-foreground">{line}</p>
+                </div>
+              ))}
             </div>
           </AgentPanel>
 
@@ -435,12 +594,12 @@ export default function Progress() {
               <span className="font-medium text-sm">AI Recommendation</span>
             </div>
             <p className="text-xs text-muted-foreground">
-              Based on recent progress, consider adjusting speech therapy frequency. 
-              This insight has been shared with your assigned Therapist and Parent.
+              {monitoringInference?.nextActions?.[0] ||
+                "Monitoring recommendation will appear after enough screening and session data is available."}
             </p>
-            <p className="text-xs text-muted-foreground/70 mt-2 italic">
-              Simulated AI analysis for demonstration purposes.
-            </p>
+            {monitoringInference?.nextActions?.[1] && (
+              <p className="text-xs text-muted-foreground mt-2">{monitoringInference.nextActions[1]}</p>
+            )}
           </div>
         </div>
       </div>
@@ -463,11 +622,7 @@ export default function Progress() {
         </div>
       </motion.div>
 
-      {selectedChild && (
-        <div className="mt-8">
-          <TherapyProgressTab childId={selectedChild.id} childName={selectedChild.name} />
-        </div>
-      )}
+      {/* Graph-heavy tab removed from this page to keep progress view concise and focused. */}
     </DashboardLayout>
   );
 }

@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { Child, Report, ScreeningResult, TherapySession } from '@/lib/store';
+import { agentsService } from '@/services/agents';
 
 export interface TherapistProfile {
   id: string;
@@ -206,27 +207,52 @@ export const reportsService = {
       ])
       .select()
       .single();
+
+    if (!error && report.type === 'diagnostic' && report.childId) {
+      try {
+        console.log('[Reports Service] Triggering therapy plan generation for child:', report.childId);
+        await agentsService.generateTherapyPlanningByChild({ childId: report.childId });
+        console.log('[Reports Service] Therapy plan generation completed for child:', report.childId);
+      } catch (therapyError) {
+        console.warn('[Reports Service] Therapy plan generation trigger failed:', therapyError);
+      }
+    }
+
     return { data, error };
   },
 };
 
 export const screeningService = {
   async saveResult(result: Omit<ScreeningResult, 'timestamp'> & { cvReport?: any }) {
-    const { data, error } = await supabase
-      .from('screening_results')
-      .insert([
-        {
-          child_id: result.childId,
-          risk_level: result.riskLevel,
+    const apiBase = import.meta.env.VITE_API_URL;
+    if (!apiBase) {
+      return { data: null, error: { message: 'VITE_API_URL is not set. Configure frontend API base URL.' } as any };
+    }
+
+    try {
+      const response = await fetch(`${apiBase}/api/screening/results`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          childId: result.childId,
+          report: result.cvReport ?? null,
           indicators: result.indicators,
-          cv_report: result.cvReport ?? null,
-          video_url: result.videoFileName, // Mapping videoFileName to video_url
-          answers: result.questionnaireAnswers,
-        }
-      ])
-      .select()
-      .single();
-    return { data, error };
+          videoFileName: result.videoFileName,
+          questionnaireAnswers: result.questionnaireAnswers,
+          riskLevel: result.riskLevel,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        return { data: null, error: { message: errorData?.error || `Failed to save screening result (${response.status})` } as any };
+      }
+
+      const payload = await response.json();
+      return { data: payload.data, error: null };
+    } catch (err: any) {
+      return { data: null, error: { message: err?.message || 'Failed to save screening result' } as any };
+    }
   },
   async getResultsForChild(childId: string) {
     const { data, error } = await supabase

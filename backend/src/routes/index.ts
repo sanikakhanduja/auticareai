@@ -1,6 +1,5 @@
 import { Router } from "express";
 import multer from "multer";
-import fetch from "node-fetch";
 import FormData from "form-data";
 import fs from "fs";
 
@@ -8,6 +7,12 @@ const router = Router();
 const upload = multer({ dest: "uploads/" });
 
 const PYTHON_API = process.env.PYTHON_API_URL || "http://127.0.0.1:8000";
+
+const nodeFetch = async (...args: Parameters<typeof fetch>) => {
+  const mod = await import("node-fetch");
+  const fetchFn = mod.default as unknown as typeof fetch;
+  return fetchFn(...args);
+};
 
 router.post("/screen", upload.single("video"), async (req, res) => {
   if (!req.file) {
@@ -22,7 +27,7 @@ router.post("/screen", upload.single("video"), async (req, res) => {
       req.file.originalname
     );
 
-    const response = await fetch(`${PYTHON_API}/api/screen`, {
+    const response = await nodeFetch(`${PYTHON_API}/api/screen`, {
       method: "POST",
       body: formData,
       headers: formData.getHeaders(),

@@ -13,6 +13,7 @@ const doctors_1 = __importDefault(require("./routes/doctors"));
 const supabase_1 = require("./config/supabase");
 const screening_1 = __importDefault(require("./routes/screening"));
 const progress_1 = __importDefault(require("./routes/progress"));
+const agents_1 = __importDefault(require("./routes/agents"));
 dotenv_1.default.config();
 if (!process.env.GOOGLE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID.includes('your_google_client_id')) {
     console.warn('\x1b[33m%s\x1b[0m', '⚠️  WARNING: Google OAuth keys are missing or invalid in .env. Google Sign-In will not work.');
@@ -45,6 +46,7 @@ app.use('/api/auth', auth_1.default);
 app.use('/api/doctors', doctors_1.default);
 app.use('/api/screening', screening_1.default);
 app.use('/api/progress', progress_1.default);
+app.use('/api/agents', agents_1.default);
 // Health Check
 app.get('/health', async (req, res) => {
     const { error } = await supabase_1.supabase.from('profiles').select('count', { count: 'exact', head: true });
