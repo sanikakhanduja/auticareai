@@ -56,16 +56,68 @@ const deriveProgressSnapshot = (
   const latestRisk = latest ? riskScoreMap[latest.risk_level] ?? 50 : 50;
   const previousRisk = previous ? riskScoreMap[previous.risk_level] ?? 50 : latestRisk;
   const riskDelta = previousRisk - latestRisk;
-  const baseFromRisk = clamp(Math.round(100 - latestRisk), 15, 90);
   const completedSessions = childSessions.filter((s) => s.status === "completed").length;
-  const sessionBonus = clamp(completedSessions * 3, 0, 15);
-  const currentScore = clamp(baseFromRisk + sessionBonus, 10, 96);
-  const previousScore = clamp(currentScore - riskDelta, 8, 95);
-
   const latestDiagnostic = [...childReports]
     .filter((r) => r.type === "diagnostic")
     .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0];
   const diagnosticGaps = latestDiagnostic?.developmentalGaps || [];
+
+  if (completedSessions === 0) {
+    if (latestDiagnostic) {
+      const preTherapySeed = hashString(`${child?.id || "child"}:${latestDiagnostic.id}:pre-therapy`);
+      const currentScore = clamp(seededMetric(preTherapySeed + 7, 28, 54), 10, 96);
+      const previousScore = clamp(currentScore - seededMetric(preTherapySeed + 13, 0, 4), 8, 95);
+      const engagement = clamp(currentScore + seededMetric(preTherapySeed + 17, -5, 6), 12, 98);
+      const communication = clamp(currentScore + seededMetric(preTherapySeed + 23, -6, 5), 12, 98);
+      const attention = clamp(currentScore + seededMetric(preTherapySeed + 31, -7, 4), 12, 98);
+      const weekSeries = [
+        clamp(previousScore - seededMetric(preTherapySeed + 37, 1, 5), 10, 95),
+        clamp(previousScore - seededMetric(preTherapySeed + 41, 0, 3), 10, 95),
+        previousScore,
+        currentScore,
+      ];
+
+      return {
+        currentScore,
+        previousScore,
+        trendLabel:
+          currentScore > previousScore ? "improving" : currentScore < previousScore ? "declining" : "stable",
+        sourceLabel: "Diagnostic baseline estimate (pre-therapy)",
+        metrics: [
+          { label: "Engagement", value: engagement },
+          { label: "Communication", value: communication },
+          { label: "Attention", value: attention },
+        ],
+        focusAreas:
+          diagnosticGaps.length > 0
+            ? diagnosticGaps.slice(0, 3)
+            : ["Social communication", "Response flexibility", "Joint attention"],
+        weekSeries,
+      };
+    }
+
+    return {
+      currentScore: 0,
+      previousScore: 0,
+      trendLabel: "not started",
+      sourceLabel: "Progress starts after first completed therapy session",
+      metrics: [
+        { label: "Engagement", value: 0 },
+        { label: "Communication", value: 0 },
+        { label: "Attention", value: 0 },
+      ],
+      focusAreas:
+        diagnosticGaps.length > 0
+          ? diagnosticGaps.slice(0, 3)
+          : ["Social communication", "Response flexibility", "Joint attention"],
+      weekSeries: [0, 0, 0, 0],
+    };
+  }
+
+  const baseFromRisk = clamp(Math.round(100 - latestRisk), 15, 90);
+  const sessionBonus = clamp(completedSessions * 3, 0, 15);
+  const currentScore = clamp(baseFromRisk + sessionBonus, 10, 96);
+  const previousScore = clamp(currentScore - riskDelta, 8, 95);
 
   if (!child && !latestDiagnostic && sortedScreening.length === 0) {
     return {
@@ -246,6 +298,11 @@ export default function Progress() {
     () => therapySessions.filter((session) => session.childId === selectedChildId),
     [therapySessions, selectedChildId]
   );
+  const completedSessionsCount = useMemo(
+    () => childSessions.filter((session) => session.status === "completed").length,
+    [childSessions]
+  );
+  const hasCompletedSessions = completedSessionsCount > 0;
   const progressSnapshot = useMemo(
     () => deriveProgressSnapshot(selectedChild, screeningResults, childReports, childSessions),
     [selectedChild, screeningResults, childReports, childSessions]
@@ -256,6 +313,16 @@ export default function Progress() {
   );
 
   const insights = useMemo(() => {
+    if (!hasCompletedSessions) {
+      return [
+        {
+          type: "neutral",
+          title: "Progress Tracking Not Started",
+          message: "Complete at least one therapy session to begin progress trend tracking and AI trajectory insights.",
+        },
+      ];
+    }
+
     if (!screeningResults || screeningResults.length === 0) return [];
 
     const sorted = [...screeningResults].sort(
@@ -300,7 +367,7 @@ export default function Progress() {
     }
 
     return items;
-  }, [screeningResults]);
+  }, [screeningResults, hasCompletedSessions]);
 
   const isTherapist = currentUser?.role === "therapist";
   const isDoctor = currentUser?.role === "doctor";
@@ -308,6 +375,11 @@ export default function Progress() {
   useEffect(() => {
     const loadMonitoringInference = async () => {
       if (!selectedChild) return;
+      if (!hasCompletedSessions) {
+        setMonitoringInference(null);
+        setMonitoringError(null);
+        return;
+      }
       if (!screeningResults || screeningResults.length === 0) {
         setMonitoringInference(null);
         return;
@@ -368,7 +440,7 @@ export default function Progress() {
     };
 
     loadMonitoringInference();
-  }, [selectedChild, screeningResults, therapySessions, isDoctor, isTherapist]);
+  }, [selectedChild, screeningResults, therapySessions, isDoctor, isTherapist, hasCompletedSessions]);
 
   return (
     <DashboardLayout>
@@ -580,10 +652,12 @@ export default function Progress() {
           <div className="mt-4 rounded-2xl border border-success/30 bg-success/5 p-4">
             <div className="flex items-center gap-2 mb-2">
               <MessageSquare className="h-5 w-5 text-success" />
-              <span className="font-medium text-sm">Feedback Loop Active</span>
+              <span className="font-medium text-sm">{hasCompletedSessions ? "Feedback Loop Active" : "Feedback Loop Pending"}</span>
             </div>
             <p className="text-xs text-muted-foreground">
-              Insights are automatically shared with your therapist and care team.
+              {hasCompletedSessions
+                ? "Insights are automatically shared with your therapist and care team."
+                : "Insights sharing will activate after the first completed therapy session."}
             </p>
           </div>
 

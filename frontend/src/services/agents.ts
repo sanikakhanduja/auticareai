@@ -138,6 +138,7 @@ export const agentsService = {
 
   async generateTherapyPlanningByChild(input: {
     childId: string;
+    forceRefresh?: boolean;
   }) {
     const apiBase = getApiBase();
     const res = await fetch(`${apiBase}/api/agents/therapy-planning/by-child/generate`, {

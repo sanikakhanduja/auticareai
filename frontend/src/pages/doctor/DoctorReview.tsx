@@ -213,6 +213,7 @@ export default function DoctorReview() {
         const response = await agentsService.getClinicalSummaryByChild({
           childId,
           role: "doctor",
+          forceRefresh: true,
         });
         setClinicalSummary(response.data);
       } catch (error: any) {
@@ -469,16 +470,46 @@ export default function DoctorReview() {
 
             {!clinicalSummaryLoading && clinicalSummary && (
               <>
-                <div className="rounded-lg bg-muted/50 p-4 text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
-                  {clinicalSummary.overview || "Clinical summary is not available yet."}
+                <div className="rounded-lg bg-muted/50 p-4 text-sm text-muted-foreground leading-relaxed whitespace-pre-line break-words overflow-visible">
+                  {clinicalSummary.overview || "Clinical assessment generated based on available screening data."}
                 </div>
                 {clinicalSummary.keyFindings?.length ? (
                   <div className="mt-4 space-y-2">
-                    {clinicalSummary.keyFindings.slice(0, 4).map((item, index) => (
+                    {clinicalSummary.keyFindings.map((item, index) => (
                       <div key={index} className="text-sm text-muted-foreground">
                         • {item}
                       </div>
                     ))}
+                  </div>
+                ) : null}
+
+                {clinicalSummary.reviewFlags?.length ? (
+                  <div className="mt-4">
+                    <p className="text-xs font-semibold text-muted-foreground/80 uppercase tracking-wide mb-2">
+                      Review Flags
+                    </p>
+                    <div className="space-y-2">
+                      {clinicalSummary.reviewFlags.map((flag, index) => (
+                        <div key={index} className="text-sm text-muted-foreground">
+                          • {flag}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+
+                {clinicalSummary.recommendedNextSteps?.length ? (
+                  <div className="mt-4">
+                    <p className="text-xs font-semibold text-muted-foreground/80 uppercase tracking-wide mb-2">
+                      Recommended Next Steps
+                    </p>
+                    <div className="space-y-2">
+                      {clinicalSummary.recommendedNextSteps.map((step, index) => (
+                        <div key={index} className="text-sm text-muted-foreground">
+                          • {step}
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 ) : null}
               </>

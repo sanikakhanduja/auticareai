@@ -132,27 +132,64 @@ router.post('/clinical-summary/by-child', async (req, res) => {
     if (!parsed.success) {
         return res.status(400).json({ error: 'Invalid clinical summary by-child payload', details: parsed.error.flatten() });
     }
-    const { childId } = parsed.data;
+    const { childId, role, forceRefresh } = parsed.data;
     try {
-        const cached = await agentOrchestrationService_1.agentOrchestrationService.getLatestClinicalSummaryForChild(childId);
-        if (!cached?.summary_json) {
-            return res.status(404).json({
-                error: 'No cached clinical summary found for this child. Run screening to generate summary.',
+        if (!forceRefresh) {
+            const cached = await agentOrchestrationService_1.agentOrchestrationService.getLatestClinicalSummaryForChild(childId);
+            if (!cached?.summary_json) {
+                return res.status(404).json({
+                    error: 'No cached clinical summary found for this child. Run screening to generate summary.',
+                });
+            }
+            console.log('[Agents API] clinical-summary/by-child cache hit', {
+                childId,
+                sourceScreeningId: cached.source_screening_id,
+                generatedBy: cached.generated_by,
+            });
+            return res.json({
+                data: cached.summary_json,
+                meta: {
+                    generatedBy: cached.generated_by,
+                    model: cached.model || undefined,
+                    cached: true,
+                },
+                sourceScreeningId: cached.source_screening_id,
             });
         }
-        console.log('[Agents API] clinical-summary/by-child cache hit', {
+        const latestScreening = await agentOrchestrationService_1.agentOrchestrationService.getLatestScreeningForChild(childId);
+        if (!latestScreening?.cv_report) {
+            return res.status(404).json({
+                error: 'No screening report found for this child. Run screening first.',
+            });
+        }
+        const childName = await agentOrchestrationService_1.agentOrchestrationService.getChildName(childId);
+        const generated = await agentOrchestrationService_1.agentOrchestrationService.generateClinicalSummary({
+            childName,
+            role,
+            screeningReport: latestScreening.cv_report,
+        });
+        await agentOrchestrationService_1.agentOrchestrationService.persistClinicalSummary({
             childId,
-            sourceScreeningId: cached.source_screening_id,
-            generatedBy: cached.generated_by,
+            sourceScreeningId: latestScreening.id,
+            role,
+            summaryJson: generated.data,
+            generatedBy: generated.meta.generatedBy,
+            model: generated.meta.model,
+        });
+        console.log('[Agents API] clinical-summary/by-child regenerated', {
+            childId,
+            sourceScreeningId: latestScreening.id,
+            generatedBy: generated.meta.generatedBy,
+            model: generated.meta.model || null,
         });
         return res.json({
-            data: cached.summary_json,
+            data: generated.data,
             meta: {
-                generatedBy: cached.generated_by,
-                model: cached.model || undefined,
-                cached: true,
+                generatedBy: generated.meta.generatedBy,
+                model: generated.meta.model || undefined,
+                cached: false,
             },
-            sourceScreeningId: cached.source_screening_id,
+            sourceScreeningId: latestScreening.id,
         });
     }
     catch (error) {

@@ -134,6 +134,14 @@ export default function Screening() {
   }, [mappedChildren, selectedChildId, setSelectedChildId]);
 
   useEffect(() => {
+    if (!selectedChildId || mappedChildren.length === 0) return;
+    const exists = mappedChildren.some((child) => child.id === selectedChildId);
+    if (!exists) {
+      setSelectedChildId(mappedChildren[0].id);
+    }
+  }, [mappedChildren, selectedChildId, setSelectedChildId]);
+
+  useEffect(() => {
     const paramChildId = searchParams.get("childId");
     if (paramChildId && paramChildId !== selectedChildId) {
       setSelectedChildId(paramChildId);
@@ -188,6 +196,12 @@ export default function Screening() {
 
   const startProcessing = async () => {
     if (!uploadedFile || !selectedChildId) return;
+    const selectedChildExists = mappedChildren.some((child) => child.id === selectedChildId);
+    if (!selectedChildExists) {
+      setScreeningError("Selected child profile is invalid or no longer available. Please re-select a child.");
+      setStep("upload");
+      return;
+    }
 
     setScreeningError(null);
     setStep("processing");
