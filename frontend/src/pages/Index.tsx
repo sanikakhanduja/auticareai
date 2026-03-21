@@ -6,6 +6,10 @@ import { Button } from "@/components/ui/button";
 export default function Index() {
   const navigate = useNavigate();
 
+  const scrollToLogin = () => {
+    document.getElementById("login-section")?.scrollIntoView({ behavior: "smooth" });
+  };
+
   const features = [
     {
       icon: Brain,
@@ -54,18 +58,18 @@ export default function Index() {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="fixed top-0 left-0 right-0 z-50 border-b border-border bg-card/80 backdrop-blur-md">
-        <div className="container flex h-16 items-center justify-between">
+      <header className="fixed top-0 left-0 right-0 z-50 bg-white/70 backdrop-blur-md transition-all duration-300">
+        <div className="container flex h-20 items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl gradient-primary">
-              <Bot className="h-6 w-6 text-primary-foreground" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary shadow-sm">
+              <Bot className="h-6 w-6 text-white" />
             </div>
             <div>
-              <span className="font-bold text-xl">AutiCare</span>
-              <span className="text-primary ml-1">AI</span>
+              <span className="font-bold text-xl tracking-tight">AutiCare</span>
+              <span className="text-primary ml-1 font-bold">AI</span>
             </div>
           </div>
-          <Button onClick={() => navigate("/auth")} variant="hero">
+          <Button onClick={scrollToLogin} variant="default" className="rounded-full px-6">
             Get Started
             <ArrowRight className="ml-2 h-4 w-4" />
           </Button>
@@ -73,112 +77,127 @@ export default function Index() {
       </header>
 
       {/* Hero Section */}
-      <section className="pt-32 pb-20 px-4">
-        <div className="container max-w-5xl mx-auto text-center">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-          >
-            <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-2 text-sm font-medium text-primary mb-6">
-              <Bot className="h-4 w-4" />
-              AI-Enabled Early Intervention
-            </div>
-            <h1 className="text-5xl md:text-6xl font-bold mb-6 leading-tight">
-              Early Autism Screening
-              <br />
-              <span className="text-primary">Powered by AI</span>
-            </h1>
-            <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-8">
-              A comprehensive care platform connecting parents, doctors, and therapists
-              through intelligent AI agents for early detection and personalized care.
-            </p>
-            <div className="flex flex-wrap justify-center gap-4">
-              <Button size="xl" variant="hero" onClick={() => navigate("/auth")}>
-                Start Screening
-                <ArrowRight className="ml-2 h-5 w-5" />
-              </Button>
-              <Button size="xl" variant="outline" onClick={() => navigate("/auth")}>
-                Learn More
-              </Button>
-            </div>
-          </motion.div>
+      <section className="relative min-h-[90vh] flex items-center overflow-hidden">
+        {/* Hero Background */}
+        <div className="absolute inset-0 z-0">
+          <img
+            src="/login.png"
+            alt="Compassionate Care"
+            className="w-full h-full object-cover object-center scale-105 animate-subtle-zoom"
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-white/90 via-white/50 to-transparent md:bg-gradient-to-r" />
+          <div className="absolute inset-0 bg-black/5 md:hidden" />
+        </div>
 
-          {/* Hero Visual */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.3, duration: 0.5 }}
-            className="mt-16 rounded-3xl border border-border bg-card p-8 shadow-elevated"
-          >
-            <div className="grid gap-6 md:grid-cols-4">
-              {agents.map((agent, index) => (
-                <motion.div
-                  key={agent.name}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.4 + index * 0.1 }}
-                  className="flex flex-col items-center"
+        <div className="container relative z-10 px-6 py-32 md:py-48">
+          <div className="max-w-2xl">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, ease: "easeOut" }}
+            >
+              <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 border border-primary/20 px-4 py-1.5 text-sm font-semibold text-primary mb-8 shadow-sm">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+                </span>
+                AI-Enabled Early Support
+              </div>
+              
+              <h1 className="text-5xl md:text-7xl font-bold mb-8 leading-[1.1] tracking-tight text-foreground">
+                Compassionate Early <br />
+                <span className="text-primary">Autism Screening</span>
+                <p className="text-3xl md:text-4xl mt-2 font-medium opacity-90">Powered by AI</p>
+              </h1>
+              
+              <p className="text-lg md:text-xl text-muted-foreground/90 max-w-xl mb-12 leading-relaxed">
+                A supportive platform connecting parents, doctors, and therapists to enable 
+                earlier understanding, guided screening, and personalized care.
+              </p>
+              
+              <div className="flex flex-wrap gap-5">
+                <Button 
+                  size="xl" 
+                  variant="default" 
+                  onClick={scrollToLogin}
+                  className="rounded-full px-10 shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-all"
                 >
-                  <div
-                    className={`h-16 w-16 rounded-2xl ${agent.color} flex items-center justify-center mb-3 animate-float`}
-                    style={{ animationDelay: `${index * 0.5}s` }}
-                  >
-                    <agent.icon className="h-8 w-8 text-white" />
-                  </div>
-                  <p className="text-sm font-medium text-center">{agent.name}</p>
-                </motion.div>
-              ))}
-            </div>
-          </motion.div>
+                  Get Started
+                  <ArrowRight className="ml-2 h-5 w-5" />
+                </Button>
+                <Button 
+                  size="xl" 
+                  variant="outline" 
+                  onClick={() => navigate("/auth")}
+                  className="rounded-full px-10 border-2 hover:bg-primary/5 transition-all"
+                >
+                  Learn More
+                </Button>
+              </div>
+            </motion.div>
+          </div>
         </div>
       </section>
 
       {/* Agents Section */}
-      <section className="py-16">
-        <div className="container max-w-5xl mx-auto px-4">
-          <div className="text-center mb-10">
-            <h2 className="text-3xl font-bold mb-3">All 4 AI Agents</h2>
-            <p className="text-muted-foreground">
-              The platform runs all four agents together during screening and care workflows.
-            </p>
-          </div>
-          <div className="grid gap-5 md:grid-cols-2">
-            {agents.map((agent, index) => (
-              <motion.div
-                key={agent.name}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.08 }}
-                className="rounded-2xl border border-border bg-card p-5 shadow-card"
-              >
-                <div className="flex items-start gap-4">
-                  <div className={`h-12 w-12 rounded-xl ${agent.color} flex items-center justify-center shrink-0`}>
-                    <agent.icon className="h-6 w-6 text-white" />
+      <section className="py-24 bg-white">
+        <div className="container max-w-6xl mx-auto px-6">
+          <div className="grid gap-12 lg:grid-cols-2 items-center">
+            <div>
+              <h2 className="text-3xl md:text-4xl font-bold mb-6 text-foreground tracking-tight">Our Intelligent Support Ecosystem</h2>
+              <p className="text-lg text-muted-foreground mb-8 leading-relaxed">
+                The platform seamlessly integrates four specialized AI agents that work in harmony 
+                to support every step of your journey—from initial screening to clinical review and therapy planning.
+              </p>
+              <div className="grid gap-4 sm:grid-cols-2">
+                {agents.map((agent) => (
+                  <div key={agent.name} className="flex items-center gap-3 p-3 rounded-xl border border-border bg-muted/30">
+                    <div className={`h-10 w-10 rounded-lg ${agent.color} flex items-center justify-center`}>
+                      <agent.icon className="h-5 w-5 text-white" />
+                    </div>
+                    <span className="font-medium text-sm">{agent.name}</span>
                   </div>
-                  <div>
-                    <h3 className="font-semibold">{agent.name}</h3>
-                    <p className="text-sm text-muted-foreground mt-1">{agent.description}</p>
-                  </div>
-                </div>
-              </motion.div>
-            ))}
+                ))}
+              </div>
+            </div>
+            
+            <div className="relative">
+              <div className="absolute -inset-4 bg-primary/5 rounded-[2rem] blur-2xl" />
+              <div className="relative grid gap-6 md:grid-cols-2">
+                {agents.map((agent, index) => (
+                  <motion.div
+                    key={agent.name}
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.1 }}
+                    viewport={{ once: true }}
+                    className="rounded-2xl border border-border bg-card p-6 shadow-sm hover:shadow-md transition-shadow"
+                  >
+                    <div className={`h-12 w-12 rounded-xl ${agent.color} flex items-center justify-center mb-4`}>
+                      <agent.icon className="h-6 w-6 text-white" />
+                    </div>
+                    <h3 className="font-semibold mb-2">{agent.name}</h3>
+                    <p className="text-sm text-muted-foreground leading-relaxed">{agent.description}</p>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
       {/* Features Section */}
-      <section className="py-20 bg-muted/30">
-        <div className="container max-w-5xl mx-auto px-4">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold mb-4">How It Works</h2>
-            <p className="text-muted-foreground max-w-xl mx-auto">
+      <section className="py-24 bg-muted/30">
+        <div className="container max-w-6xl mx-auto px-6">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4 tracking-tight">How It Works</h2>
+            <p className="text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">
               Our multi-agent AI system works alongside healthcare professionals
               to provide comprehensive early screening and care.
             </p>
           </div>
 
-          <div className="grid gap-6 md:grid-cols-3">
+          <div className="grid gap-8 md:grid-cols-3">
             {features.map((feature, index) => (
               <motion.div
                 key={feature.title}
@@ -186,13 +205,13 @@ export default function Index() {
                 whileInView={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.1 }}
                 viewport={{ once: true }}
-                className="rounded-2xl border border-border bg-card p-6 shadow-card"
+                className="rounded-3xl border border-border bg-card p-8 shadow-sm hover:shadow-md transition-all group"
               >
-                <div className="h-12 w-12 rounded-xl gradient-primary flex items-center justify-center mb-4">
-                  <feature.icon className="h-6 w-6 text-primary-foreground" />
+                <div className="h-14 w-14 rounded-2xl bg-primary/10 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                  <feature.icon className="h-7 w-7 text-primary" />
                 </div>
-                <h3 className="text-lg font-semibold mb-2">{feature.title}</h3>
-                <p className="text-muted-foreground text-sm">{feature.description}</p>
+                <h3 className="text-xl font-bold mb-3 tracking-tight">{feature.title}</h3>
+                <p className="text-muted-foreground leading-relaxed">{feature.description}</p>
               </motion.div>
             ))}
           </div>
@@ -200,19 +219,22 @@ export default function Index() {
       </section>
 
       {/* Trust Section */}
-      <section className="py-20">
-        <div className="container max-w-4xl mx-auto px-4">
+      <section className="py-24">
+        <div className="container max-w-4xl mx-auto px-6">
           <motion.div
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
+            initial={{ opacity: 0, scale: 0.98 }}
+            whileInView={{ opacity: 1, scale: 1 }}
             viewport={{ once: true }}
-            className="rounded-3xl gradient-hero p-8 md:p-12 text-primary-foreground text-center"
+            className="rounded-[3rem] bg-foreground p-10 md:p-16 text-white text-center shadow-2xl overflow-hidden relative"
           >
-            <Shield className="h-16 w-16 mx-auto mb-6 opacity-90" />
-            <h2 className="text-3xl font-bold mb-4">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl" />
+            <div className="absolute bottom-0 left-0 w-64 h-64 bg-primary/10 rounded-full translate-y-1/2 -translate-x-1/2 blur-3xl" />
+            
+            <Shield className="h-20 w-20 mx-auto mb-8 text-primary" />
+            <h2 className="text-4xl font-bold mb-6 tracking-tight">
               AI Supports, Humans Decide
             </h2>
-            <p className="text-lg opacity-90 max-w-2xl mx-auto mb-8">
+            <p className="text-xl text-white/80 max-w-2xl mx-auto mb-10 leading-relaxed">
               Our AI agents provide intelligent insights and recommendations,
               but final clinical decisions are always made by qualified healthcare
               professionals. Your child's care is in expert hands.
@@ -225,10 +247,10 @@ export default function Index() {
               ].map((item) => (
                 <div
                   key={item}
-                  className="flex items-center gap-2 bg-white/10 rounded-full px-4 py-2"
+                  className="flex items-center gap-2 bg-white/10 backdrop-blur-sm border border-white/10 rounded-full px-6 py-2.5"
                 >
-                  <CheckCircle2 className="h-4 w-4" />
-                  <span className="text-sm font-medium">{item}</span>
+                  <CheckCircle2 className="h-4 w-4 text-primary" />
+                  <span className="text-sm font-semibold">{item}</span>
                 </div>
               ))}
             </div>
@@ -237,16 +259,24 @@ export default function Index() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-20 bg-muted/30">
-        <div className="container max-w-2xl mx-auto px-4 text-center">
-          <h2 className="text-3xl font-bold mb-4">Ready to Get Started?</h2>
-          <p className="text-muted-foreground mb-8">
-            Create your account and begin your child's developmental screening journey.
+      <section id="login-section" className="py-32 bg-muted/30">
+        <div className="container max-w-3xl mx-auto px-6 text-center">
+          <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-1.5 text-sm font-semibold text-primary mb-6">
+            Begin Your Journey
+          </div>
+          <h2 className="text-4xl md:text-5xl font-bold mb-6 tracking-tight">Ready to Take the First Step?</h2>
+          <p className="text-xl text-muted-foreground mb-12 leading-relaxed">
+            Create your account and begin your child's developmental screening journey with our supportive AI-enabled platform.
           </p>
-          <Button size="xl" variant="hero" onClick={() => navigate("/auth")}>
-            Create Account
-            <ArrowRight className="ml-2 h-5 w-5" />
-          </Button>
+          <div className="flex flex-col sm:flex-row justify-center gap-4">
+            <Button size="xl" variant="default" onClick={() => navigate("/auth")} className="rounded-full px-12 shadow-lg shadow-primary/20">
+              Create Account
+              <ArrowRight className="ml-2 h-5 w-5" />
+            </Button>
+            <Button size="xl" variant="outline" onClick={() => navigate("/auth")} className="rounded-full px-12 border-2">
+              Sign In
+            </Button>
+          </div>
         </div>
       </section>
 

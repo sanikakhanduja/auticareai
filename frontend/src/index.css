@@ -15,7 +15,7 @@
     --popover: 0 0% 100%;
     --popover-foreground: 200 25% 15%;
 
-    --primary: 174 62% 47%;
+    --primary: 166 33% 53%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 15 85% 70%;
@@ -24,7 +24,7 @@
     --muted: 180 15% 95%;
     --muted-foreground: 200 15% 45%;
 
-    --accent: 262 60% 65%;
+    --accent: 166 33% 53%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 72% 60%;
@@ -38,21 +38,21 @@
 
     --border: 180 15% 90%;
     --input: 180 15% 90%;
-    --ring: 174 62% 47%;
+    --ring: 166 33% 53%;
 
-    --radius: 0.75rem;
+    --radius: 1rem;
 
     /* AI Agent Colors */
-    --agent-screening: 262 60% 65%;
+    --agent-screening: 166 33% 53%;
     --agent-clinical: 200 70% 55%;
     --agent-therapy: 152 60% 50%;
     --agent-monitoring: 38 70% 55%;
 
     /* Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(174 62% 47%) 0%, hsl(180 55% 55%) 100%);
-    --gradient-accent: linear-gradient(135deg, hsl(262 60% 65%) 0%, hsl(280 55% 70%) 100%);
+    --gradient-primary: linear-gradient(135deg, hsl(166 33% 53%) 0%, hsl(170 30% 60%) 100%);
+    --gradient-accent: linear-gradient(135deg, #6BB5A3 0%, #8ED1C2 100%);
     --gradient-warm: linear-gradient(135deg, hsl(15 85% 70%) 0%, hsl(25 80% 75%) 100%);
-    --gradient-hero: linear-gradient(135deg, hsl(174 62% 47%) 0%, hsl(262 60% 65%) 100%);
+    --gradient-hero: linear-gradient(135deg, #6BB5A3 0%, #8ED1C2 100%);
 
     /* Shadows */
     --shadow-soft: 0 4px 20px -4px hsl(200 25% 15% / 0.08);
@@ -174,11 +174,20 @@
   .animate-spin-slow {
     animation: spin 3s linear infinite;
   }
+
+  .animate-subtle-zoom {
+    animation: subtle-zoom 20s ease-in-out infinite alternate;
+  }
 }
 
 @keyframes float {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-10px); }
+}
+
+@keyframes subtle-zoom {
+  from { transform: scale(1); }
+  to { transform: scale(1.1); }
 }
 
 @keyframes pulse-soft {

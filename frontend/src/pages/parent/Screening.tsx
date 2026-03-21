@@ -710,8 +710,8 @@ export default function Screening() {
                   </div>
                 </div>
 
-                <div className="rounded-2xl border border-accent/30 bg-accent/5 p-6">
-                  <Bot className="h-8 w-8 text-accent mb-3" />
+                <div className="rounded-2xl border border-primary/30 bg-primary/5 p-6">
+                  <Bot className="h-8 w-8 text-primary mb-3" />
                   <p className="text-sm font-medium mb-2">Important Notice</p>
                   <p className="text-xs text-muted-foreground">
                     AI supports decisions, humans remain in control. This screening is not a

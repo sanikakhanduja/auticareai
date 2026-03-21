@@ -261,7 +261,7 @@ export default function ParentDashboard() {
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="mb-8 rounded-2xl border border-accent/30 gradient-accent p-6 text-primary-foreground"
+        className="mb-8 rounded-2xl border border-primary/20 gradient-accent p-6 text-white shadow-soft"
       >
         <div className="flex items-start gap-4">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/20">
