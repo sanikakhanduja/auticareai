@@ -30,6 +30,7 @@ const therapyPlanningSchema = z.object({
 
 const therapyPlanningByChildSchema = z.object({
   childId: z.string().uuid(),
+  forceRefresh: z.boolean().optional().default(false),
 });
 
 const monitoringInferenceSchema = z.object({
@@ -145,29 +146,71 @@ router.post('/clinical-summary/by-child', async (req, res) => {
     return res.status(400).json({ error: 'Invalid clinical summary by-child payload', details: parsed.error.flatten() });
   }
 
-  const { childId } = parsed.data;
+  const { childId, role, forceRefresh } = parsed.data;
 
   try {
-    const cached = await agentOrchestrationService.getLatestClinicalSummaryForChild(childId);
-    if (!cached?.summary_json) {
-      return res.status(404).json({
-        error: 'No cached clinical summary found for this child. Run screening to generate summary.',
+    if (!forceRefresh) {
+      const cached = await agentOrchestrationService.getLatestClinicalSummaryForChild(childId);
+      if (!cached?.summary_json) {
+        return res.status(404).json({
+          error: 'No cached clinical summary found for this child. Run screening to generate summary.',
+        });
+      }
+
+      console.log('[Agents API] clinical-summary/by-child cache hit', {
+        childId,
+        sourceScreeningId: cached.source_screening_id,
+        generatedBy: cached.generated_by,
+      });
+      return res.json({
+        data: cached.summary_json,
+        meta: {
+          generatedBy: cached.generated_by,
+          model: cached.model || undefined,
+          cached: true,
+        },
+        sourceScreeningId: cached.source_screening_id,
       });
     }
 
-    console.log('[Agents API] clinical-summary/by-child cache hit', {
-      childId,
-      sourceScreeningId: cached.source_screening_id,
-      generatedBy: cached.generated_by,
+    const latestScreening = await agentOrchestrationService.getLatestScreeningForChild(childId);
+    if (!latestScreening?.cv_report) {
+      return res.status(404).json({
+        error: 'No screening report found for this child. Run screening first.',
+      });
+    }
+
+    const childName = await agentOrchestrationService.getChildName(childId);
+    const generated = await agentOrchestrationService.generateClinicalSummary({
+      childName,
+      role,
+      screeningReport: latestScreening.cv_report,
     });
+
+    await agentOrchestrationService.persistClinicalSummary({
+      childId,
+      sourceScreeningId: latestScreening.id,
+      role,
+      summaryJson: generated.data,
+      generatedBy: generated.meta.generatedBy,
+      model: generated.meta.model,
+    });
+
+    console.log('[Agents API] clinical-summary/by-child regenerated', {
+      childId,
+      sourceScreeningId: latestScreening.id,
+      generatedBy: generated.meta.generatedBy,
+      model: generated.meta.model || null,
+    });
+
     return res.json({
-      data: cached.summary_json,
+      data: generated.data,
       meta: {
-        generatedBy: cached.generated_by,
-        model: cached.model || undefined,
-        cached: true,
+        generatedBy: generated.meta.generatedBy,
+        model: generated.meta.model || undefined,
+        cached: false,
       },
-      sourceScreeningId: cached.source_screening_id,
+      sourceScreeningId: latestScreening.id,
     });
   } catch (error) {
     console.error('[Agents API] Failed to fetch by-child clinical summary', error);
@@ -236,7 +279,7 @@ router.post('/therapy-planning/by-child/generate', async (req, res) => {
     return res.status(400).json({ error: 'Invalid therapy planning generate payload', details: parsed.error.flatten() });
   }
 
-  const { childId } = parsed.data;
+  const { childId, forceRefresh } = parsed.data;
   try {
     const diagnostic = await agentOrchestrationService.getLatestDiagnosticReportForChild(childId);
     if (!diagnostic?.content) {
@@ -249,7 +292,7 @@ router.post('/therapy-planning/by-child/generate', async (req, res) => {
     });
 
     const existing = await agentOrchestrationService.getTherapyPlanForSourceReport(childId, diagnostic.id);
-    if (existing?.plan_json && existing.generated_by === 'gemini') {
+    if (!forceRefresh && existing?.plan_json && existing.generated_by === 'gemini') {
       console.log('[Agents API] therapy-planning/by-child/generate cache hit', {
         childId,
         sourceReportId: diagnostic.id,
@@ -264,6 +307,13 @@ router.post('/therapy-planning/by-child/generate', async (req, res) => {
           cached: true,
         },
         sourceReportId: diagnostic.id,
+      });
+    }
+    if (forceRefresh && existing?.plan_json) {
+      console.log('[Agents API] therapy-planning/by-child/generate force refresh requested; bypassing cache.', {
+        childId,
+        sourceReportId: diagnostic.id,
+        existingGeneratedBy: existing.generated_by,
       });
     }
     if (existing?.plan_json && existing.generated_by === 'deterministic') {

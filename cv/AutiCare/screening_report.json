@@ -1,0 +1,43 @@
+{
+  "risk_assessment": {
+    "level": "Medium Risk",
+    "confidence": 0.75,
+    "description": "The screening indicates a medium risk likelihood of autism spectrum disorder."
+  },
+  "metrics": {
+    "objective_signals": {
+      "eye_contact_duration": {
+        "value": "0.0%",
+        "baseline": "75.0%",
+        "status": "below_baseline"
+      },
+      "attention_shifts": {
+        "value": "0.0/min",
+        "baseline": "8.0/min",
+        "status": "below_baseline"
+      },
+      "gesture_frequency": {
+        "value": "394.5/min",
+        "baseline": "6.0/min",
+        "status": "above_baseline"
+      },
+      "social_gaze": {
+        "value": "0.0%",
+        "baseline": "60.0%",
+        "status": "below_baseline"
+      },
+      "response_latency": {
+        "value": "0.0s",
+        "baseline": "1.5s",
+        "status": "below_baseline"
+      }
+    },
+    "behavioral_indicators": {
+      "eye_gaze_patterns": true,
+      "social_engagement": true,
+      "environmental_response": true,
+      "repetitive_behaviors": true,
+      "communication_patterns": true
+    }
+  }
+}

@@ -6,6 +6,10 @@ const GEMINI_URL_BASE = 'https://generativelanguage.googleapis.com/v1beta/models
 const GEMINI_MODELS = (process.env.GEMINI_MODELS?.split(',').map((m) => m.trim()).filter(Boolean) || [
     'gemini-2.5-flash',
 ]);
+const CLINICAL_SUMMARY_MIN_WORDS = 12;
+const CLINICAL_SUMMARY_MAX_WORDS = 24;
+const THERAPY_PLAN_MIN_WORDS = 12;
+const THERAPY_PLAN_MAX_WORDS = 24;
 exports.agentOrchestrationService = {
     async getLatestClinicalSummaryForChild(childId) {
         const { data, error } = await supabase_1.supabase
@@ -173,10 +177,9 @@ exports.agentOrchestrationService = {
         const textInference = await this.tryGeminiText({
             instruction: [
                 'You are a clinical assistant for doctors reviewing autism screening outputs.',
-                'Write exactly one paragraph in English for doctor-facing UI, around 55-75 words. You may add on possible diagnosis to increase the content and show it real',
-                'Use only evidence present in INPUT_JSON. Do not invent facts or diagnoses.',
+                `Write exactly one short English inference sentence for doctor-facing UI, ${CLINICAL_SUMMARY_MIN_WORDS}-${CLINICAL_SUMMARY_MAX_WORDS} words.`,
                 'Start with reported risk level (and confidence if available).',
-                'Then describe 2-3 most important value-based observations from objective signals by comparing value vs baseline (for example eye contact, social gaze, response latency, attention shifts).',
+                'Then include the most important objective signal insight (value vs baseline).',
                 'Mention relevant behavioral indicators if present.',
                 'End with one practical clinical next step (evaluation, follow-up, or referral).',
                 'No markdown, no bullets, no headings, and no prefixes like "Sure", "Here is", or "Summary:".',
@@ -184,11 +187,12 @@ exports.agentOrchestrationService = {
             payload: input,
         });
         if (textInference?.text) {
-            const cleaned = this.cleanClinicalText(textInference.text);
+            let cleaned = this.cleanClinicalText(textInference.text);
+            cleaned = await this.ensureClinicalSummaryWordRange(cleaned, input);
             normalized = {
                 ...normalized,
                 overview: cleaned,
-                keyFindings: this.extractSentenceLines(cleaned).slice(0, 4),
+                keyFindings: [],
                 reviewFlags: [],
             };
             meta = {
@@ -213,17 +217,18 @@ exports.agentOrchestrationService = {
         const textInference = await this.tryGeminiText({
             instruction: [
                 'You are a pediatric therapy planning assistant.',
-                'Write exactly one concise paragraph in English (45-70 words).',
-                'Use INPUT_JSON only. Do not invent diagnosis details.',
+                `Write exactly one short English inference sentence (${THERAPY_PLAN_MIN_WORDS}-${THERAPY_PLAN_MAX_WORDS} words).`,
                 'Focus on top priorities, immediate therapist actions, and one home carryover suggestion.',
                 'No markdown, no bullets, no headings.',
             ].join(' '),
             payload: input,
         });
         if (textInference?.text) {
+            let cleaned = this.cleanClinicalText(textInference.text);
+            cleaned = await this.ensureTherapyPlanWordRange(cleaned, input);
             data = {
                 ...data,
-                aiInsightsParagraph: this.cleanClinicalText(textInference.text),
+                aiInsightsParagraph: cleaned,
             };
             meta = {
                 generatedBy: 'gemini',
@@ -346,6 +351,72 @@ exports.agentOrchestrationService = {
             .replace(/```[\s\S]*?```/g, '')
             .replace(/\s+/g, ' ')
             .trim();
+    },
+    countWords(text) {
+        return (text.match(/\b[\w'-]+\b/g) || []).length;
+    },
+    async ensureClinicalSummaryWordRange(text, input) {
+        const wordCount = this.countWords(text);
+        if (wordCount >= CLINICAL_SUMMARY_MIN_WORDS && wordCount <= CLINICAL_SUMMARY_MAX_WORDS) {
+            return text;
+        }
+        const rewrite = await this.tryGeminiText({
+            instruction: [
+                `Rewrite DRAFT as exactly one short English inference sentence with ${CLINICAL_SUMMARY_MIN_WORDS}-${CLINICAL_SUMMARY_MAX_WORDS} words.`,
+                'Keep only facts present in INPUT_JSON and DRAFT.',
+                'No markdown, no bullets, no headings.',
+            ].join(' '),
+            payload: {
+                draft: text,
+                input,
+            },
+        });
+        if (!rewrite?.text) {
+            return text;
+        }
+        const cleaned = this.cleanClinicalText(rewrite.text);
+        const cleanedWordCount = this.countWords(cleaned);
+        if (cleanedWordCount >= CLINICAL_SUMMARY_MIN_WORDS && cleanedWordCount <= CLINICAL_SUMMARY_MAX_WORDS) {
+            return cleaned;
+        }
+        return text;
+    },
+    async ensureTherapyPlanWordRange(text, input) {
+        const wordCount = this.countWords(text);
+        if (wordCount >= THERAPY_PLAN_MIN_WORDS && wordCount <= THERAPY_PLAN_MAX_WORDS) {
+            return text;
+        }
+        const rewrite = await this.tryGeminiText({
+            instruction: [
+                `Rewrite DRAFT as exactly one short English inference sentence with ${THERAPY_PLAN_MIN_WORDS}-${THERAPY_PLAN_MAX_WORDS} words.`,
+                'Keep only facts present in INPUT_JSON and DRAFT.',
+                'No markdown, no bullets, no headings.',
+            ].join(' '),
+            payload: {
+                draft: text,
+                input,
+            },
+        });
+        if (!rewrite?.text) {
+            return text;
+        }
+        const cleaned = this.cleanClinicalText(rewrite.text);
+        const cleanedWordCount = this.countWords(cleaned);
+        if (cleanedWordCount >= THERAPY_PLAN_MIN_WORDS && cleanedWordCount <= THERAPY_PLAN_MAX_WORDS) {
+            return cleaned;
+        }
+        return text;
+    },
+    extractGeminiText(raw) {
+        const parts = raw?.candidates?.[0]?.content?.parts;
+        if (!Array.isArray(parts)) {
+            return null;
+        }
+        const text = parts
+            .map((part) => (typeof part?.text === 'string' ? part.text : ''))
+            .join('')
+            .trim();
+        return text || null;
     },
     buildTherapyPlanDeterministic(input) {
         const baseIntensity = input.severityLevel === 'high' ? 'high' : input.severityLevel === 'moderate' ? 'moderate' : 'light';
@@ -476,7 +547,7 @@ exports.agentOrchestrationService = {
                     continue;
                 }
                 const raw = (await response.json());
-                const text = raw?.candidates?.[0]?.content?.parts?.[0]?.text;
+                const text = this.extractGeminiText(raw);
                 if (!text) {
                     console.warn('[Agents Service] Gemini returned empty text for model:', model);
                     continue;
@@ -549,7 +620,7 @@ exports.agentOrchestrationService = {
                     continue;
                 }
                 const raw = (await response.json());
-                const text = raw?.candidates?.[0]?.content?.parts?.[0]?.text;
+                const text = this.extractGeminiText(raw);
                 if (!text || !text.trim()) {
                     console.warn('[Agents Service] Gemini text fallback returned empty text for model:', model);
                     continue;

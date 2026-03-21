@@ -134,6 +134,14 @@ export default function Screening() {
   }, [mappedChildren, selectedChildId, setSelectedChildId]);
 
   useEffect(() => {
+    if (!selectedChildId || mappedChildren.length === 0) return;
+    const exists = mappedChildren.some((child) => child.id === selectedChildId);
+    if (!exists) {
+      setSelectedChildId(mappedChildren[0].id);
+    }
+  }, [mappedChildren, selectedChildId, setSelectedChildId]);
+
+  useEffect(() => {
     const paramChildId = searchParams.get("childId");
     if (paramChildId && paramChildId !== selectedChildId) {
       setSelectedChildId(paramChildId);
@@ -188,6 +196,12 @@ export default function Screening() {
 
   const startProcessing = async () => {
     if (!uploadedFile || !selectedChildId) return;
+    const selectedChildExists = mappedChildren.some((child) => child.id === selectedChildId);
+    if (!selectedChildExists) {
+      setScreeningError("Selected child profile is invalid or no longer available. Please re-select a child.");
+      setStep("upload");
+      return;
+    }
 
     setScreeningError(null);
     setStep("processing");
@@ -710,8 +724,8 @@ export default function Screening() {
                   </div>
                 </div>
 
-                <div className="rounded-2xl border border-accent/30 bg-accent/5 p-6">
-                  <Bot className="h-8 w-8 text-accent mb-3" />
+                <div className="rounded-2xl border border-primary/30 bg-primary/5 p-6">
+                  <Bot className="h-8 w-8 text-primary mb-3" />
                   <p className="text-sm font-medium mb-2">Important Notice</p>
                   <p className="text-xs text-muted-foreground">
                     AI supports decisions, humans remain in control. This screening is not a

@@ -25,6 +25,9 @@ const normalizeRiskLevel = (raw: unknown): "low" | "medium" | "high" | null => {
   return null;
 };
 
+const isUuid = (value: string) =>
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+
 
 router.post("/screen", upload.single("video"), async (req: Request, res: Response) => {
   if (!req.file) {
@@ -110,17 +113,35 @@ router.get("/results/:childId", async (req: Request, res: Response) => {
 // Save screening results
 router.post("/results", async (req: Request, res: Response) => {
   const { childId, report, indicators, videoFileName, questionnaireAnswers, riskLevel } = req.body;
+  const normalizedChildId = typeof childId === "string" ? childId.trim() : "";
 
-  if (!childId || !report) {
+  if (!normalizedChildId || !report) {
     return res.status(400).json({ error: "childId and report are required" });
+  }
+  if (!isUuid(normalizedChildId)) {
+    return res.status(400).json({ error: "Invalid childId format. Expected UUID." });
   }
 
   try {
+    const { data: existingChild, error: childLookupError } = await supabase
+      .from("children")
+      .select("id")
+      .eq("id", normalizedChildId)
+      .maybeSingle();
+
+    if (childLookupError) {
+      console.error("[Screening API] Failed to verify child before save:", childLookupError.message);
+      return res.status(500).json({ error: "Failed to verify child profile before saving screening result" });
+    }
+    if (!existingChild) {
+      return res.status(404).json({ error: "Child not found. Select an existing child profile and retry." });
+    }
+
     const normalizedRiskLevel =
       normalizeRiskLevel(riskLevel) || normalizeRiskLevel(report?.risk_assessment?.level);
 
     console.log("[Screening API] Saving screening result", {
-      childId,
+      childId: normalizedChildId,
       hasReport: Boolean(report),
       riskLevelRaw: report?.risk_assessment?.level ?? riskLevel ?? null,
       riskLevelNormalized: normalizedRiskLevel,
@@ -131,7 +152,7 @@ router.post("/results", async (req: Request, res: Response) => {
     const { data, error } = await supabase
       .from("screening_results")
       .insert({
-        child_id: childId,
+        child_id: normalizedChildId,
         risk_level: normalizedRiskLevel,
         indicators: indicators || null,
         cv_report: report,
@@ -151,7 +172,7 @@ router.post("/results", async (req: Request, res: Response) => {
     // Non-blocking cache warm-up for clinical summaries.
     // This ensures doctor/parent portals can instantly reuse generated summaries.
     try {
-      const childName = await agentOrchestrationService.getChildName(childId);
+      const childName = await agentOrchestrationService.getChildName(normalizedChildId);
       const summaryResult = await agentOrchestrationService.generateClinicalSummary({
         childName,
         role: "doctor",
@@ -159,7 +180,7 @@ router.post("/results", async (req: Request, res: Response) => {
       });
 
       await agentOrchestrationService.persistClinicalSummary({
-        childId,
+        childId: normalizedChildId,
         sourceScreeningId: data.id,
         role: "doctor",
         summaryJson: summaryResult.data,
@@ -168,7 +189,7 @@ router.post("/results", async (req: Request, res: Response) => {
       });
 
       console.log("[Screening API] Cached clinical summary", {
-        childId,
+        childId: normalizedChildId,
         sourceScreeningId: data.id,
         role: "doctor",
         generatedBy: summaryResult.meta.generatedBy,

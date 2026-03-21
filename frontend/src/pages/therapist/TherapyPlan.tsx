@@ -91,6 +91,7 @@ export default function TherapyPlan() {
       try {
         const response = await agentsService.generateTherapyPlanningByChild({
           childId: child.id,
+          forceRefresh: true,
         });
         setAgentPlan(response.data);
         setAgentMeta(response.meta || null);
@@ -231,9 +232,12 @@ export default function TherapyPlan() {
             {agentLoading ? (
               <p className="text-sm text-muted-foreground">Generating clinical paragraph...</p>
             ) : (
-              <p className="text-sm leading-relaxed text-foreground">
+              <p className="text-sm leading-relaxed text-foreground whitespace-pre-line break-words overflow-visible">
                 {agentPlan?.aiInsightsParagraph ||
-                  "AI paragraph will appear here when Gemini suggestion is available."}
+                  (agentPlan?.overview
+                    ? `${agentPlan.overview}${agentPlan?.therapistFocus?.length ? " Primary focus: " + agentPlan.therapistFocus[0] : ""}`
+                    : "Therapy plan insights generating...")
+                }
               </p>
             )}
           </div>
