@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AutiCare AI - Autism Screening Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 800px;
+            width: 100%;
+            padding: 40px;
+        }
+
+        h1 {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 1.1em;
+        }
+
+        .upload-section {
+            border: 3px dashed #667eea;
+            border-radius: 15px;
+            padding: 40px;
+            text-align: center;
+            margin-bottom: 30px;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+
+        .upload-section:hover {
+            background: #f8f9ff;
+            border-color: #764ba2;
+        }
+
+        .upload-section.dragover {
+            background: #e8eaff;
+            border-color: #764ba2;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .upload-icon {
+            font-size: 4em;
+            margin-bottom: 20px;
+        }
+
+        .upload-text {
+            font-size: 1.2em;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .upload-hint {
+            color: #999;
+            font-size: 0.9em;
+        }
+
+        .analyze-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.1em;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: block;
+            margin: 20px auto;
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .analyze-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 7px 20px rgba(102, 126, 234, 0.6);
+        }
+
+        .analyze-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #f0f0f0;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 20px 0;
+            display: none;
+        }
+
+        .progress-bar.active {
+            display: block;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            width: 0%;
+            transition: width 0.3s;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .results {
+            display: none;
+            margin-top: 30px;
+            padding: 30px;
+            background: #f8f9ff;
+            border-radius: 15px;
+        }
+
+        .results.active {
+            display: block;
+            animation: slideIn 0.5s;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .risk-badge {
+            display: inline-block;
+            padding: 10px 25px;
+            border-radius: 50px;
+            font-size: 1.3em;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+
+        .risk-low {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .risk-medium {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .risk-high {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .metric-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .metric-label {
+            font-size: 0.9em;
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .metric-value {
+            font-size: 1.8em;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .metric-baseline {
+            font-size: 0.8em;
+            color: #999;
+            margin-top: 5px;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-left: 10px;
+        }
+
+        .status-below {
+            background: #f8d7da;
+        }
+
+        .status-above {
+            background: #d4edda;
+        }
+
+        .indicators-list {
+            margin-top: 20px;
+            list-style: none;
+        }
+
+        .indicators-list li {
+            padding: 10px;
+            margin: 5px 0;
+            background: white;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+        }
+
+        .indicators-list li::before {
+            content: "✓";
+            color: #28a745;
+            font-weight: bold;
+            margin-right: 10px;
+            font-size: 1.2em;
+        }
+
+        .disclaimer {
+            margin-top: 30px;
+            padding: 20px;
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            border-radius: 5px;
+            font-size: 0.9em;
+            color: #856404;
+        }
+
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+            display: none;
+        }
+
+        .error-message.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧠 AutiCare AI</h1>
+        <p class="subtitle">Early Autism Screening through Behavioral Analysis</p>
+
+        <div class="upload-section" id="uploadSection">
+            <div class="upload-icon">📹</div>
+            <div class="upload-text">Click to upload or drag & drop video</div>
+            <div class="upload-hint">MP4, AVI, or MOV • 30-120 seconds recommended</div>
+            <input type="file" id="videoInput" accept="video/*">
+        </div>
+
+        <div id="fileName" style="text-align: center; color: #667eea; margin-bottom: 20px;"></div>
+
+        <button class="analyze-btn" id="analyzeBtn" disabled>Analyze Video</button>
+
+        <div class="progress-bar" id="progressBar">
+            <div class="progress-fill" id="progressFill"></div>
+        </div>
+
+        <div class="error-message" id="errorMessage"></div>
+
+        <div class="results" id="results">
+            <h2>Screening Results</h2>
+            
+            <div id="riskAssessment"></div>
+
+            <h3 style="margin-top: 30px; margin-bottom: 15px;">Objective Behavioral Signals</h3>
+            <div class="metrics-grid" id="metricsGrid"></div>
+
+            <h3 style="margin-top: 30px; margin-bottom: 15px;">Behavioral Indicators Analyzed</h3>
+            <ul class="indicators-list">
+                <li>Eye gaze patterns analyzed from video</li>
+                <li>Social engagement behaviors observed</li>
+                <li>Response to environmental stimuli noted</li>
+                <li>Repetitive behavior patterns assessed</li>
+                <li>Communication patterns evaluated</li>
+            </ul>
+
+            <div class="disclaimer">
+                ⚠️ <strong>Important:</strong> This is a screening tool, not a diagnostic tool. 
+                Results should be discussed with a qualified healthcare professional. 
+                This tool is for research and educational purposes.
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configuration
+        const API_URL = 'http://localhost:8000';  // Change to your API URL
+
+        // Elements
+        const uploadSection = document.getElementById('uploadSection');
+        const videoInput = document.getElementById('videoInput');
+        const fileName = document.getElementById('fileName');
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        const progressBar = document.getElementById('progressBar');
+        const progressFill = document.getElementById('progressFill');
+        const results = document.getElementById('results');
+        const errorMessage = document.getElementById('errorMessage');
+
+        let selectedFile = null;
+
+        // Upload section click
+        uploadSection.addEventListener('click', () => {
+            videoInput.click();
+        });
+
+        // Drag and drop
+        uploadSection.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadSection.classList.add('dragover');
+        });
+
+        uploadSection.addEventListener('dragleave', () => {
+            uploadSection.classList.remove('dragover');
+        });
+
+        uploadSection.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadSection.classList.remove('dragover');
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFileSelect(files[0]);
+            }
+        });
+
+        // File input change
+        videoInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFileSelect(e.target.files[0]);
+            }
+        });
+
+        // Handle file selection
+        function handleFileSelect(file) {
+            if (!file.type.startsWith('video/')) {
+                showError('Please select a valid video file');
+                return;
+            }
+
+            selectedFile = file;
+            fileName.textContent = `Selected: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`;
+            analyzeBtn.disabled = false;
+            results.classList.remove('active');
+            errorMessage.classList.remove('active');
+        }
+
+        // Analyze button click
+        analyzeBtn.addEventListener('click', async () => {
+            if (!selectedFile) return;
+
+            try {
+                // Show progress
+                analyzeBtn.disabled = true;
+                analyzeBtn.textContent = 'Analyzing...';
+                progressBar.classList.add('active');
+                progressFill.style.width = '30%';
+                results.classList.remove('active');
+                errorMessage.classList.remove('active');
+
+                // Create form data
+                const formData = new FormData();
+                formData.append('video', selectedFile);
+
+                // Upload and analyze
+                const response = await fetch(`${API_URL}/api/screen`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Server error: ${response.status}`);
+                }
+
+                progressFill.style.width = '90%';
+
+                const data = await response.json();
+
+                // Display results
+                displayResults(data);
+
+                progressFill.style.width = '100%';
+                
+                setTimeout(() => {
+                    progressBar.classList.remove('active');
+                    progressFill.style.width = '0%';
+                }, 500);
+
+            } catch (error) {
+                console.error('Error:', error);
+                showError(`Analysis failed: ${error.message}. Make sure the API server is running at ${API_URL}`);
+                progressBar.classList.remove('active');
+            } finally {
+                analyzeBtn.disabled = false;
+                analyzeBtn.textContent = 'Analyze Video';
+            }
+        });
+
+        // Display results
+        function displayResults(data) {
+            const risk = data.risk_assessment;
+            const metrics = data.metrics.objective_signals;
+
+            // Risk assessment
+            const riskLevel = risk.level.toLowerCase().replace(' ', '-');
+            document.getElementById('riskAssessment').innerHTML = `
+                <span class="risk-badge risk-${riskLevel}">${risk.level}</span>
+                <p style="margin-top: 10px; color: #666;">
+                    Confidence: ${(risk.confidence * 100).toFixed(0)}%
+                </p>
+                <p style="margin-top: 10px; color: #333;">
+                    ${risk.description}
+                </p>
+            `;
+
+            // Metrics grid
+            const metricsHTML = [
+                {
+                    label: 'Eye Contact Duration',
+                    value: metrics.eye_contact_duration.value,
+                    baseline: metrics.eye_contact_duration.baseline,
+                    status: metrics.eye_contact_duration.status
+                },
+                {
+                    label: 'Attention Shifts',
+                    value: metrics.attention_shifts.value,
+                    baseline: metrics.attention_shifts.baseline,
+                    status: metrics.attention_shifts.status
+                },
+                {
+                    label: 'Gesture Frequency',
+                    value: metrics.gesture_frequency.value,
+                    baseline: metrics.gesture_frequency.baseline,
+                    status: metrics.gesture_frequency.status
+                },
+                {
+                    label: 'Social Gaze',
+                    value: metrics.social_gaze.value,
+                    baseline: metrics.social_gaze.baseline,
+                    status: metrics.social_gaze.status
+                },
+                {
+                    label: 'Response Latency',
+                    value: metrics.response_latency.value,
+                    baseline: metrics.response_latency.baseline,
+                    status: metrics.response_latency.status
+                }
+            ].map(metric => `
+                <div class="metric-card">
+                    <div class="metric-label">
+                        ${metric.label}
+                        <span class="status-indicator status-${metric.status.includes('below') ? 'below' : 'above'}"></span>
+                    </div>
+                    <div class="metric-value">${metric.value}</div>
+                    <div class="metric-baseline">Baseline: ${metric.baseline}</div>
+                </div>
+            `).join('');
+
+            document.getElementById('metricsGrid').innerHTML = metricsHTML;
+
+            // Show results
+            results.classList.add('active');
+        }
+
+        // Show error
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.classList.add('active');
+            setTimeout(() => {
+                errorMessage.classList.remove('active');
+            }, 5000);
+        }
+
+        // Check API health on load
+        window.addEventListener('load', async () => {
+            try {
+                const response = await fetch(`${API_URL}/health`);
+                if (response.ok) {
+                    console.log('✓ API server is running');
+                }
+            } catch (error) {
+                console.warn('⚠ API server not reachable. Make sure to run: python api_server.py');
+                showError('API server not running. Please start the server first: python api_server.py');
+            }
+        });
+    </script>
+</body>
+</html>

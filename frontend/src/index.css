@@ -1,0 +1,203 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 180 20% 99%;
+    --foreground: 200 25% 15%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 200 25% 15%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 200 25% 15%;
+
+    --primary: 174 62% 47%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 15 85% 70%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 180 15% 95%;
+    --muted-foreground: 200 15% 45%;
+
+    --accent: 262 60% 65%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 72% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 152 60% 45%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 38 92% 55%;
+    --warning-foreground: 0 0% 100%;
+
+    --border: 180 15% 90%;
+    --input: 180 15% 90%;
+    --ring: 174 62% 47%;
+
+    --radius: 0.75rem;
+
+    /* AI Agent Colors */
+    --agent-screening: 262 60% 65%;
+    --agent-clinical: 200 70% 55%;
+    --agent-therapy: 152 60% 50%;
+    --agent-monitoring: 38 70% 55%;
+
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(174 62% 47%) 0%, hsl(180 55% 55%) 100%);
+    --gradient-accent: linear-gradient(135deg, hsl(262 60% 65%) 0%, hsl(280 55% 70%) 100%);
+    --gradient-warm: linear-gradient(135deg, hsl(15 85% 70%) 0%, hsl(25 80% 75%) 100%);
+    --gradient-hero: linear-gradient(135deg, hsl(174 62% 47%) 0%, hsl(262 60% 65%) 100%);
+
+    /* Shadows */
+    --shadow-soft: 0 4px 20px -4px hsl(200 25% 15% / 0.08);
+    --shadow-card: 0 8px 30px -8px hsl(200 25% 15% / 0.1);
+    --shadow-elevated: 0 16px 50px -12px hsl(200 25% 15% / 0.15);
+
+    --sidebar-background: 180 20% 98%;
+    --sidebar-foreground: 200 25% 15%;
+    --sidebar-primary: 174 62% 47%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 180 15% 95%;
+    --sidebar-accent-foreground: 200 25% 15%;
+    --sidebar-border: 180 15% 90%;
+    --sidebar-ring: 174 62% 47%;
+  }
+
+  .dark {
+    --background: 200 25% 8%;
+    --foreground: 180 15% 95%;
+
+    --card: 200 20% 12%;
+    --card-foreground: 180 15% 95%;
+
+    --popover: 200 20% 12%;
+    --popover-foreground: 180 15% 95%;
+
+    --primary: 174 62% 50%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 15 75% 65%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 200 20% 18%;
+    --muted-foreground: 180 10% 60%;
+
+    --accent: 262 55% 60%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 65% 55%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 152 55% 50%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 38 85% 55%;
+    --warning-foreground: 0 0% 100%;
+
+    --border: 200 20% 20%;
+    --input: 200 20% 20%;
+    --ring: 174 62% 50%;
+
+    --sidebar-background: 200 20% 10%;
+    --sidebar-foreground: 180 15% 95%;
+    --sidebar-primary: 174 62% 50%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 200 20% 18%;
+    --sidebar-accent-foreground: 180 15% 95%;
+    --sidebar-border: 200 20% 20%;
+    --sidebar-ring: 174 62% 50%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+  }
+}
+
+@layer utilities {
+  .gradient-primary {
+    background: var(--gradient-primary);
+  }
+  
+  .gradient-accent {
+    background: var(--gradient-accent);
+  }
+  
+  .gradient-warm {
+    background: var(--gradient-warm);
+  }
+  
+  .gradient-hero {
+    background: var(--gradient-hero);
+  }
+
+  .shadow-soft {
+    box-shadow: var(--shadow-soft);
+  }
+
+  .shadow-card {
+    box-shadow: var(--shadow-card);
+  }
+
+  .shadow-elevated {
+    box-shadow: var(--shadow-elevated);
+  }
+
+  .animate-float {
+    animation: float 3s ease-in-out infinite;
+  }
+
+  .animate-pulse-soft {
+    animation: pulse-soft 2s ease-in-out infinite;
+  }
+
+  .animate-slide-up {
+    animation: slide-up 0.5s ease-out;
+  }
+
+  .animate-fade-in {
+    animation: fade-in 0.3s ease-out;
+  }
+
+  .animate-spin-slow {
+    animation: spin 3s linear infinite;
+  }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+@keyframes slide-up {
+  from { 
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to { 
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}

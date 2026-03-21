@@ -1,0 +1,35 @@
+# Autism Screening CV Model - Requirements (Updated for Mac ARM64)
+
+# Core computer vision
+opencv-python>=4.8.0
+mediapipe>=0.10.30  # Updated to available version
+
+# Deep learning (for advanced classification)
+# tensorflow>=2.15.0  # Commented out - use PyTorch for deployment stability
+torch>=2.0.0
+torchvision>=0.15.0
+
+# Scientific computing
+numpy>=1.24.0
+scipy>=1.11.0
+
+# Data handling
+pandas>=2.1.0
+
+# Visualization
+# matplotlib>=3.8.0  # Commented out - not needed for API deployment
+# seaborn>=0.13.0    # Commented out - not needed for API deployment
+
+# Video processing
+# moviepy>=1.0.3     # Commented out - use OpenCV instead for lighter deployment
+
+# ML utilities
+scikit-learn>=1.3.0
+
+# Progress bars
+tqdm>=4.66.0
+
+# API and web integration (for deployment)
+fastapi>=0.109.0
+uvicorn>=0.27.0
+python-multipart>=0.0.6
