@@ -143,22 +143,12 @@ export default function Index() {
       <section className="py-24 bg-white">
         <div className="container max-w-6xl mx-auto px-6">
           <div className="grid gap-12 lg:grid-cols-2 items-center">
-            <div>
-              <h2 className="text-3xl md:text-4xl font-bold mb-6 text-foreground tracking-tight">Our Intelligent Support Ecosystem</h2>
-              <p className="text-lg text-muted-foreground mb-8 leading-relaxed">
+            <div className="lg:pr-12">
+              <h2 className="text-4xl md:text-5xl font-bold mb-8 text-foreground tracking-tight leading-tight">Our Intelligent Support Ecosystem</h2>
+              <p className="text-xl text-muted-foreground leading-relaxed">
                 The platform seamlessly integrates four specialized AI agents that work in harmony 
                 to support every step of your journey—from initial screening to clinical review and therapy planning.
               </p>
-              <div className="grid gap-4 sm:grid-cols-2">
-                {agents.map((agent) => (
-                  <div key={agent.name} className="flex items-center gap-3 p-3 rounded-xl border border-border bg-muted/30">
-                    <div className={`h-10 w-10 rounded-lg ${agent.color} flex items-center justify-center`}>
-                      <agent.icon className="h-5 w-5 text-white" />
-                    </div>
-                    <span className="font-medium text-sm">{agent.name}</span>
-                  </div>
-                ))}
-              </div>
             </div>
             
             <div className="relative">
