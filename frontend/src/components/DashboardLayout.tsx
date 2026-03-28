@@ -18,6 +18,7 @@ import { useAppStore, UserRole } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { authService } from "@/services/auth";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 interface NavItem {
   label: string;
@@ -151,7 +152,11 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           </nav>
 
           {/* Footer */}
-          <div className="border-t border-border p-4">
+          <div className="border-t border-border p-4 space-y-2">
+            <div className="flex items-center justify-between px-3 py-1">
+              <span className="text-sm text-muted-foreground">Theme</span>
+              <ThemeToggle />
+            </div>
             <Button
               variant="ghost"
               className="w-full justify-start text-muted-foreground"
