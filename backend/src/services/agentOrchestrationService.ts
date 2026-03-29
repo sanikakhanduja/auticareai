@@ -93,8 +93,9 @@ const GEMINI_MODELS = (
 );
 const CLINICAL_SUMMARY_MIN_WORDS = Number(process.env.CLINICAL_SUMMARY_MIN_WORDS || 55);
 const CLINICAL_SUMMARY_MAX_WORDS = Number(process.env.CLINICAL_SUMMARY_MAX_WORDS || 100);
-const THERAPY_PLAN_MIN_WORDS = Number(process.env.THERAPY_PLAN_MIN_WORDS || 60);
-const THERAPY_PLAN_MAX_WORDS = Number(process.env.THERAPY_PLAN_MAX_WORDS || 110);
+const THERAPY_PLAN_MIN_WORDS = Number(process.env.THERAPY_PLAN_MIN_WORDS || 120);
+const THERAPY_PLAN_MAX_WORDS = Number(process.env.THERAPY_PLAN_MAX_WORDS || 220);
+const LLM_DEBUG_LOG = String(process.env.LLM_DEBUG_LOG || '').toLowerCase() === 'true';
 
 export const agentOrchestrationService = {
   async getLatestClinicalSummaryForChild(childId: string): Promise<ClinicalSummaryCacheRow | null> {
@@ -360,8 +361,22 @@ export const agentOrchestrationService = {
     });
 
     if (textInference?.text) {
+      if (LLM_DEBUG_LOG) {
+        console.log('[Agents Service] Therapy plan Gemini raw output:', {
+          model: textInference.model,
+          wordCount: this.countWords(textInference.text),
+          text: textInference.text,
+        });
+      }
       let cleaned = this.cleanClinicalText(textInference.text);
       cleaned = await this.ensureTherapyPlanWordRange(cleaned, input);
+      if (LLM_DEBUG_LOG) {
+        console.log('[Agents Service] Therapy plan cleaned output:', {
+          model: textInference.model,
+          wordCount: this.countWords(cleaned),
+          text: cleaned,
+        });
+      }
       data = {
         ...data,
         aiInsightsParagraph: cleaned,
@@ -727,6 +742,12 @@ export const agentOrchestrationService = {
           console.warn('[Agents Service] Gemini returned empty text for model:', model);
           continue;
         }
+        if (LLM_DEBUG_LOG) {
+          console.log('[Agents Service] Gemini JSON raw text:', {
+            model,
+            text,
+          });
+        }
         const parsed = this.tryParseJsonBlock(text);
         if (!parsed) {
           console.warn('[Agents Service] Gemini raw text (first 500 chars):', text.slice(0, 500));
@@ -804,6 +825,14 @@ export const agentOrchestrationService = {
         if (!text || !text.trim()) {
           console.warn('[Agents Service] Gemini text fallback returned empty text for model:', model);
           continue;
+        }
+
+        if (LLM_DEBUG_LOG) {
+          console.log('[Agents Service] Gemini text raw output:', {
+            model,
+            wordCount: this.countWords(text),
+            text,
+          });
         }
 
         return { text: text.trim(), model };

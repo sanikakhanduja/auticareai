@@ -21,7 +21,7 @@ import { AgentPanel, AgentBadge } from "@/components/AgentBadge";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Child } from "@/lib/store";
 import { authService } from "@/services/auth";
-import { childrenService, profilesService, reportsService } from "@/services/data";
+import { childrenService, profilesService, reportsService, screeningService } from "@/services/data";
 import { cvService, CvReport } from "@/services/cv";
 import { agentsService, ClinicalSummaryResponse } from "@/services/agents";
 import {
@@ -119,6 +119,8 @@ export default function DoctorReview() {
   const [clinicalSummary, setClinicalSummary] = useState<ClinicalSummaryResponse | null>(null);
   const [clinicalSummaryLoading, setClinicalSummaryLoading] = useState(false);
   const [clinicalSummaryError, setClinicalSummaryError] = useState<string | null>(null);
+  const [latestScreeningVideoUrl, setLatestScreeningVideoUrl] = useState<string | null>(null);
+  const [latestScreeningVideoError, setLatestScreeningVideoError] = useState<string | null>(null);
 
   useEffect(() => {
     const loadChild = async () => {
@@ -225,6 +227,25 @@ export default function DoctorReview() {
 
     loadClinicalSummary();
   }, [childId, child]);
+
+  useEffect(() => {
+    const loadLatestScreeningVideo = async () => {
+      if (!childId) return;
+      setLatestScreeningVideoError(null);
+      const { data, error } = await screeningService.getLatestScreeningVideo(childId);
+      if (error) {
+        if (!/No screening video found/i.test(error.message || "")) {
+          setLatestScreeningVideoError(error.message || "Failed to load screening video");
+        }
+        setLatestScreeningVideoUrl(null);
+        return;
+      }
+
+      setLatestScreeningVideoUrl(data?.signedUrl || null);
+    };
+
+    loadLatestScreeningVideo();
+  }, [childId]);
 
   if (!child) {
     return (
@@ -450,6 +471,31 @@ export default function DoctorReview() {
             <div className="rounded-2xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
               {cvReportError}
             </div>
+          )}
+
+          {(latestScreeningVideoUrl || latestScreeningVideoError) && (
+            <AgentPanel type="screening">
+              <div className="flex items-center gap-2 mb-4">
+                <Eye className="h-5 w-5" />
+                <h3 className="font-semibold">Uploaded Screening Video</h3>
+              </div>
+
+              {latestScreeningVideoError ? (
+                <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+                  {latestScreeningVideoError}
+                </div>
+              ) : null}
+
+              {latestScreeningVideoUrl ? (
+                <video
+                  controls
+                  className="w-full max-h-[420px] rounded-xl border border-border bg-black"
+                  src={latestScreeningVideoUrl}
+                >
+                  Your browser does not support video playback.
+                </video>
+              ) : null}
+            </AgentPanel>
           )}
 
           <AgentPanel type="clinical">

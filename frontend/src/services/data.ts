@@ -272,6 +272,60 @@ export const screeningService = {
       .maybeSingle();
     return { data, error };
   },
+
+  async uploadScreeningVideo(childId: string, videoFile: File) {
+    const apiBase = import.meta.env.VITE_API_URL;
+    if (!apiBase) {
+      return { data: null, error: { message: 'VITE_API_URL is not set. Configure frontend API base URL.' } as any };
+    }
+
+    try {
+      const formData = new FormData();
+      formData.append('childId', childId);
+      formData.append('video', videoFile);
+
+      const response = await fetch(`${apiBase}/api/screening/results/video`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        return {
+          data: null,
+          error: { message: errorData?.error || `Failed to upload screening video (${response.status})` } as any,
+        };
+      }
+
+      const payload = await response.json();
+      return { data: payload.data, error: null };
+    } catch (err: any) {
+      return { data: null, error: { message: err?.message || 'Failed to upload screening video' } as any };
+    }
+  },
+
+  async getLatestScreeningVideo(childId: string) {
+    const apiBase = import.meta.env.VITE_API_URL;
+    if (!apiBase) {
+      return { data: null, error: { message: 'VITE_API_URL is not set. Configure frontend API base URL.' } as any };
+    }
+
+    try {
+      const response = await fetch(`${apiBase}/api/screening/results/${childId}/latest-video`);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        return {
+          data: null,
+          error: { message: errorData?.error || `Failed to fetch screening video (${response.status})` } as any,
+        };
+      }
+
+      const payload = await response.json();
+      return { data: payload.data, error: null };
+    } catch (err: any) {
+      return { data: null, error: { message: err?.message || 'Failed to fetch screening video' } as any };
+    }
+  },
 };
 
 export const therapySessionsService = {

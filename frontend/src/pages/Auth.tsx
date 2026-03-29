@@ -4,6 +4,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Bot, Users, Stethoscope, HeartPulse, Mail, Lock, User, ArrowRight, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -25,6 +27,7 @@ export default function Auth() {
   const [requiresProviderLocation, setRequiresProviderLocation] = useState(false);
   const [pendingProviderId, setPendingProviderId] = useState<string | null>(null);
   const [pendingProviderRole, setPendingProviderRole] = useState<"doctor" | "therapist" | null>(null);
+  const [parentConsentAccepted, setParentConsentAccepted] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -172,6 +175,13 @@ export default function Auth() {
         alert("Please select specialization, state and district.");
         return;
       }
+    }
+
+    if (isSignUp && selectedRole === "parent" && !parentConsentAccepted) {
+      alert(
+        "Please provide consent for secure child video processing and healthcare data handling before creating a parent account."
+      );
+      return;
     }
 
     try {
@@ -501,6 +511,27 @@ export default function Auth() {
                         />
                       </div>
                     </>
+                  ) : null}
+
+                  {isSignUp && selectedRole === "parent" && !requiresProviderLocation ? (
+                    <div className="rounded-xl border border-accent/30 bg-accent/5 p-4">
+                      <div className="flex items-start gap-3">
+                        <Checkbox
+                          id="parent-consent"
+                          checked={parentConsentAccepted}
+                          onCheckedChange={(checked) => setParentConsentAccepted(Boolean(checked))}
+                          className="mt-1"
+                        />
+                        <div className="space-y-2">
+                          <Label htmlFor="parent-consent" className="text-sm leading-relaxed">
+                            I provide informed consent to upload my child&apos;s videos for AI-assisted screening and clinical review. I understand this is a screening support tool (not a diagnosis), that data is handled securely, and authorized care professionals may access reports for treatment planning.
+                          </Label>
+                          <p className="text-xs text-muted-foreground">
+                            By continuing, you agree to responsible healthcare use and privacy terms for child data processing.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
                   ) : null}
 
                   <Button type="submit" size="lg" variant="hero" className="w-full">
