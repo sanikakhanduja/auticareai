@@ -1,4 +1,6 @@
 **AutiCare AI**
+Deployed Link : [AutiCare](https://auticareaifrontend.vercel.app/)
+
 
 AI-Powered Early Autism Detection and Continuous Care Platform
 AutiCare AI is an intelligent platform designed to assist in the early detection, monitoring, and support of Autism Spectrum Disorder (ASD) using computer vision, AI analytics, and an integrated care ecosystem.

@@ -28,6 +28,8 @@ const normalizeRiskLevel = (raw: unknown): "low" | "medium" | "high" | null => {
 const isUuid = (value: string) =>
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 
+const SCREENING_VIDEO_BUCKET = process.env.SCREENING_VIDEO_BUCKET || "screening-videos";
+
 
 router.post("/screen", upload.single("video"), async (req: Request, res: Response) => {
   if (!req.file) {
@@ -79,6 +81,101 @@ router.post("/screen", upload.single("video"), async (req: Request, res: Respons
     console.error(err);
     const message = err instanceof Error ? err.message : "Screening failed";
     return res.status(502).json({ error: message });
+  }
+});
+
+// Upload screening video for doctor playback (stored in Supabase Storage)
+router.post("/results/video", upload.single("video"), async (req: Request, res: Response) => {
+  const childId = typeof req.body?.childId === "string" ? req.body.childId.trim() : "";
+
+  if (!childId || !isUuid(childId)) {
+    if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+    return res.status(400).json({ error: "Valid childId is required" });
+  }
+
+  if (!req.file) {
+    return res.status(400).json({ error: "Video file is required" });
+  }
+
+  try {
+    const ext = (req.file.originalname.split(".").pop() || "mp4").toLowerCase();
+    const safeExt = /^[a-z0-9]+$/i.test(ext) ? ext : "mp4";
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+    const objectPath = `${childId}/${timestamp}-${req.file.filename}.${safeExt}`;
+    const fileBuffer = fs.readFileSync(req.file.path);
+
+    const { error: uploadError } = await supabase.storage
+      .from(SCREENING_VIDEO_BUCKET)
+      .upload(objectPath, fileBuffer, {
+        contentType: req.file.mimetype || "video/mp4",
+        upsert: false,
+      });
+
+    if (uploadError) {
+      return res.status(500).json({ error: `Failed to upload screening video: ${uploadError.message}` });
+    }
+
+    return res.json({
+      data: {
+        bucket: SCREENING_VIDEO_BUCKET,
+        objectPath,
+      },
+    });
+  } catch (err) {
+    console.error("[Screening API] Failed to upload screening video", err);
+    const message = err instanceof Error ? err.message : "Failed to upload screening video";
+    return res.status(500).json({ error: message });
+  } finally {
+    if (req.file && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
+  }
+});
+
+// Get latest screening video signed URL for a child (no DB dependency)
+router.get("/results/:childId/latest-video", async (req: Request, res: Response) => {
+  const childId = typeof req.params?.childId === "string" ? req.params.childId.trim() : "";
+  if (!childId || !isUuid(childId)) {
+    return res.status(400).json({ error: "Invalid childId format. Expected UUID." });
+  }
+
+  try {
+    const { data: files, error: listError } = await supabase.storage
+      .from(SCREENING_VIDEO_BUCKET)
+      .list(childId, {
+        limit: 100,
+        sortBy: { column: "name", order: "desc" },
+      });
+
+    if (listError) {
+      return res.status(500).json({ error: `Failed to list screening videos: ${listError.message}` });
+    }
+
+    if (!files || files.length === 0) {
+      return res.status(404).json({ error: "No screening video found for this child" });
+    }
+
+    const latestFile = files[0];
+    const latestPath = `${childId}/${latestFile.name}`;
+    const { data: signedData, error: signedError } = await supabase.storage
+      .from(SCREENING_VIDEO_BUCKET)
+      .createSignedUrl(latestPath, 3600);
+
+    if (signedError || !signedData?.signedUrl) {
+      return res.status(500).json({ error: `Failed to create signed URL: ${signedError?.message || "Unknown error"}` });
+    }
+
+    return res.json({
+      data: {
+        signedUrl: signedData.signedUrl,
+        objectPath: latestPath,
+        expiresInSeconds: 3600,
+      },
+    });
+  } catch (err) {
+    console.error("[Screening API] Failed to fetch latest screening video", err);
+    const message = err instanceof Error ? err.message : "Failed to fetch latest screening video";
+    return res.status(500).json({ error: message });
   }
 });
 

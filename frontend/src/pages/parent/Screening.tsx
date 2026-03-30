@@ -127,26 +127,42 @@ export default function Screening() {
     });
   }, [children]);
 
-  useEffect(() => {
-    if (!selectedChildId && mappedChildren.length > 0) {
-      setSelectedChildId(mappedChildren[0].id);
-    }
-  }, [mappedChildren, selectedChildId, setSelectedChildId]);
+  const visibleChildren = useMemo(
+    () => mappedChildren.filter((child) => child.screeningStatus !== "diagnosed"),
+    [mappedChildren]
+  );
+
+  const isChildSelectable = (child: Child) => child.screeningStatus === "not-started";
+
+  const selectedChild = useMemo(
+    () => visibleChildren.find((child) => child.id === selectedChildId) || null,
+    [visibleChildren, selectedChildId]
+  );
+
+  const selectedChildCanStart = selectedChild ? isChildSelectable(selectedChild) : false;
 
   useEffect(() => {
-    if (!selectedChildId || mappedChildren.length === 0) return;
-    const exists = mappedChildren.some((child) => child.id === selectedChildId);
+    if (selectedChildId || visibleChildren.length === 0) return;
+    const firstEligible = visibleChildren.find((child) => isChildSelectable(child));
+    setSelectedChildId(firstEligible?.id || visibleChildren[0].id);
+  }, [visibleChildren, selectedChildId, setSelectedChildId]);
+
+  useEffect(() => {
+    if (!selectedChildId || visibleChildren.length === 0) return;
+    const exists = visibleChildren.some((child) => child.id === selectedChildId);
     if (!exists) {
-      setSelectedChildId(mappedChildren[0].id);
+      const firstEligible = visibleChildren.find((child) => isChildSelectable(child));
+      setSelectedChildId(firstEligible?.id || visibleChildren[0].id);
     }
-  }, [mappedChildren, selectedChildId, setSelectedChildId]);
+  }, [visibleChildren, selectedChildId, setSelectedChildId]);
 
   useEffect(() => {
     const paramChildId = searchParams.get("childId");
-    if (paramChildId && paramChildId !== selectedChildId) {
+    const targetChild = paramChildId ? visibleChildren.find((child) => child.id === paramChildId) : null;
+    if (targetChild && paramChildId !== selectedChildId) {
       setSelectedChildId(paramChildId);
     }
-  }, [searchParams, selectedChildId, setSelectedChildId]);
+  }, [searchParams, selectedChildId, setSelectedChildId, visibleChildren]);
 
   useEffect(() => {
     const loadScreeningHistory = async () => {
@@ -178,6 +194,12 @@ export default function Screening() {
 
   const handleStartQuestionnaire = () => {
     if (!uploadedFile || !selectedChildId) return;
+    if (!selectedChildCanStart) {
+      setScreeningError(
+        "This child is not eligible for new screening right now. Only newly created children can be screened from this page."
+      );
+      return;
+    }
     if (hasPriorScreening) {
       startProcessing();
       return;
@@ -196,9 +218,16 @@ export default function Screening() {
 
   const startProcessing = async () => {
     if (!uploadedFile || !selectedChildId) return;
-    const selectedChildExists = mappedChildren.some((child) => child.id === selectedChildId);
+    const selectedChildExists = visibleChildren.some((child) => child.id === selectedChildId);
     if (!selectedChildExists) {
       setScreeningError("Selected child profile is invalid or no longer available. Please re-select a child.");
+      setStep("upload");
+      return;
+    }
+    if (!selectedChildCanStart) {
+      setScreeningError(
+        "Selected child is not eligible for new screening. Please pick a newly created child profile."
+      );
       setStep("upload");
       return;
     }
@@ -247,6 +276,11 @@ export default function Screening() {
       });
       if (saveError) {
         throw new Error(saveError.message || "Failed to save screening result");
+      }
+
+      const { error: videoUploadError } = await screeningService.uploadScreeningVideo(selectedChildId, uploadedFile);
+      if (videoUploadError) {
+        console.warn("[Screening UI] Screening result saved but video upload failed:", videoUploadError.message);
       }
 
       const { error: childUpdateError } = await childrenService.updateChild(selectedChildId, {
@@ -345,28 +379,58 @@ export default function Screening() {
                     </div>
                   )}
 
-                  {!loadingChildren && mappedChildren.length === 0 && !childrenError && (
+                  {!loadingChildren && visibleChildren.length === 0 && !childrenError && (
                     <div className="rounded-xl border border-dashed border-border p-4 text-sm text-muted-foreground">
-                      No child profiles found. Please add a child to start screening.
+                      No eligible child profiles for screening. Diagnosed children are hidden.
                     </div>
                   )}
 
-                  {!loadingChildren && mappedChildren.length > 0 && (
+                  {!loadingChildren && visibleChildren.length > 0 && (
                     <div className="space-y-3">
-                      {mappedChildren.map((child) => (
+                      {visibleChildren.map((child) => {
+                        const isDisabled = !isChildSelectable(child);
+                        const isSelected = selectedChildId === child.id;
+                        const followUpDate = child.observationEndDate ? new Date(child.observationEndDate) : null;
+                        return (
                         <button
                           key={child.id}
+                          disabled={isDisabled}
                           onClick={() => setSelectedChildId(child.id)}
                           className={`w-full rounded-xl border-2 p-4 text-left transition-all ${
-                            selectedChildId === child.id
+                            isSelected
                               ? "border-primary bg-primary/5"
+                              : isDisabled
+                              ? "border-border bg-muted/40 opacity-70 cursor-not-allowed"
                               : "border-border hover:border-primary/50"
                           }`}
                         >
-                          <p className="font-medium">{child.name}</p>
+                          <div className="flex items-center justify-between gap-3">
+                            <p className="font-medium">{child.name}</p>
+                            {child.screeningStatus === "under-observation" && (
+                              <span className="rounded-full bg-warning/15 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-warning">
+                                Follow-up video to be added
+                              </span>
+                            )}
+                            {child.screeningStatus === "pending-review" && (
+                              <span className="rounded-full bg-primary/15 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-primary">
+                                Awaiting doctor review
+                              </span>
+                            )}
+                            {child.screeningStatus === "in-progress" && (
+                              <span className="rounded-full bg-muted px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                Screening in progress
+                              </span>
+                            )}
+                          </div>
                           <p className="text-sm text-muted-foreground">{child.age} years old</p>
+                          {child.screeningStatus === "under-observation" && followUpDate && (
+                            <p className="mt-1 text-xs text-warning">
+                              Follow-up date: {followUpDate.toLocaleDateString()}
+                            </p>
+                          )}
                         </button>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -420,10 +484,14 @@ export default function Screening() {
                 <Button
                   size="lg"
                   variant="hero"
-                  disabled={!uploadedFile || !selectedChildId || loadingScreeningHistory}
+                  disabled={!uploadedFile || !selectedChildId || !selectedChildCanStart || loadingScreeningHistory}
                   onClick={handleStartQuestionnaire}
                 >
-                    {hasPriorScreening ? "Start Screening" : "Continue to Questionnaire"}
+                    {!selectedChildCanStart
+                      ? "Select Eligible Child"
+                      : hasPriorScreening
+                      ? "Start Screening"
+                      : "Continue to Questionnaire"}
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Button>
             </div>
