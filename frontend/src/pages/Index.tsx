@@ -2,6 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Bot, Shield, Users, Brain, ArrowRight, CheckCircle2, HeartPulse, Activity } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 export default function Index() {
   const navigate = useNavigate();
@@ -58,7 +59,7 @@ export default function Index() {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-white/70 backdrop-blur-md transition-all duration-300">
+      <header className="fixed top-0 left-0 right-0 z-50 bg-background/70 backdrop-blur-md transition-all duration-300">
         <div className="container flex h-20 items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary shadow-sm">
@@ -69,10 +70,13 @@ export default function Index() {
               <span className="text-primary ml-1 font-bold">AI</span>
             </div>
           </div>
-          <Button onClick={scrollToLogin} variant="default" className="rounded-full px-6">
-            Get Started
-            <ArrowRight className="ml-2 h-4 w-4" />
-          </Button>
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <Button onClick={scrollToLogin} variant="default" className="rounded-full px-6">
+              Get Started
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -85,7 +89,7 @@ export default function Index() {
             alt="Compassionate Care"
             className="w-full h-full object-cover object-center scale-105 animate-subtle-zoom"
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-white/90 via-white/50 to-transparent md:bg-gradient-to-r" />
+          <div className="absolute inset-0 bg-gradient-to-r from-background/90 via-background/50 to-transparent md:bg-gradient-to-r dark:from-background/95 dark:via-background/70" />
           <div className="absolute inset-0 bg-black/5 md:hidden" />
         </div>
 
@@ -140,7 +144,7 @@ export default function Index() {
       </section>
 
       {/* Agents Section */}
-      <section className="py-24 bg-white">
+      <section className="py-24 bg-background">
         <div className="container max-w-6xl mx-auto px-6">
           <div className="grid gap-12 lg:grid-cols-2 items-center">
             <div className="lg:pr-12">
