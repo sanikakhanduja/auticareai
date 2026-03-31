@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { motion, AnimatePresence } from "framer-motion";
 import { Bot, Users, Stethoscope, HeartPulse, Mail, Lock, User, ArrowRight, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import {
   Select,
   SelectContent,
@@ -21,6 +23,7 @@ import { profilesService } from "@/services/data";
 type AuthStep = "role" | "form";
 
 export default function Auth() {
+  const { t } = useTranslation();
   const [step, setStep] = useState<AuthStep>("role");
   const [selectedRole, setSelectedRole] = useState<UserRole | null>(null);
   const [isSignUp, setIsSignUp] = useState(true);
@@ -44,20 +47,20 @@ export default function Auth() {
     {
       role: "parent" as UserRole,
       icon: Users,
-      title: "Parent",
-      description: "Monitor your child's development and access screening tools",
+      title: t("auth.parent.title"),
+      description: t("auth.parent.description"),
     },
     {
       role: "doctor" as UserRole,
       icon: Stethoscope,
-      title: "Doctor",
-      description: "Review screenings and provide clinical assessments",
+      title: t("auth.doctor.title"),
+      description: t("auth.doctor.description"),
     },
     {
       role: "therapist" as UserRole,
       icon: HeartPulse,
-      title: "Therapist",
-      description: "Create therapy plans and track session progress",
+      title: t("auth.therapist.title"),
+      description: t("auth.therapist.description"),
     },
   ];
 
@@ -294,13 +297,16 @@ export default function Auth() {
               <Bot className="h-6 w-6 text-primary-foreground" />
             </div>
             <div>
-              <span className="font-bold text-xl">AutiCare</span>
-              <span className="text-primary ml-1">AI</span>
+              <span className="font-bold text-xl">{t("header.title")}</span>
+              <span className="text-primary ml-1">{t("header.subtitle")}</span>
             </div>
           </div>
-          <Button variant="ghost" onClick={() => setIsSignUp(!isSignUp)}>
-            {isSignUp ? "Already have an account?" : "Need an account?"}
-          </Button>
+          <div className="flex items-center gap-2">
+            <LanguageSwitcher />
+            <Button variant="ghost" onClick={() => setIsSignUp(!isSignUp)}>
+              {isSignUp ? t("auth.toggleSignIn") : t("auth.toggleSignUp")}
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -333,10 +339,10 @@ export default function Auth() {
 
               <div className="mb-8">
                 <h2 className="text-center text-lg font-medium mb-6">
-                  {isSignUp ? "Create your account" : "Sign in to your account"}
+                  {isSignUp ? t("auth.roleSelection") : t("auth.roleSelection")}
                 </h2>
                 <p className="text-center text-muted-foreground mb-8">
-                  Select your role to continue
+                  {t("auth.selectRole")}
                 </p>
               </div>
 
@@ -360,7 +366,7 @@ export default function Auth() {
                   onClick={handleContinue}
                   disabled={!selectedRole}
                 >
-                  Continue
+                  {t("auth.continue")}
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Button>
               </div>

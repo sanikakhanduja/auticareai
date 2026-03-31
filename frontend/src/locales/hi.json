@@ -1,0 +1,446 @@
+{
+  "header": {
+    "title": "ऑटिकेयर",
+    "subtitle": "AI",
+    "getStarted": "शुरू करें",
+    "learnMore": "और जानें",
+    "language": "भाषा"
+  },
+  "hero": {
+    "badge": "AI द्वारा समर्थित प्रारंभिक सहायता",
+    "title": "दयालु प्रारंभिक",
+    "titleHighlight": "ऑटिज़्म जांच",
+    "subtitle": "AI द्वारा संचालित",
+    "description": "माता-पिता, डॉक्टरों और चिकित्सकों को जोड़ने वाला एक सहायक मंच जो पहले समझ, निर्देशित जांच और व्यक्तिगत देखभाल को सक्षम बनाता है।"
+  },
+  "agents": {
+    "title": "हमारा बुद्धिमान समर्थन पारिस्थितिकी तंत्र",
+    "description": "यह मंच चार विशेष AI एजेंटों को निर्बाध रूप से एकीकृत करता है जो आपकी यात्रा के हर चरण का समर्थन करने के लिए सामंजस्य में काम करते हैं - प्रारंभिक जांच से नैदानिक समीक्षा और थेरेपी योजना तक।",
+    "screening": {
+      "name": "स्क्रीनिंग एजेंट",
+      "description": "स्क्रीनिंग इनपुट से व्यवहार पैटर्न का विश्लेषण करता है।"
+    },
+    "clinical": {
+      "name": "क्लिनिकल सारांश एजेंट",
+      "description": "डॉक्टरों के लिए संरचित नैदानिक सारांश बनाता है।"
+    },
+    "therapy": {
+      "name": "थेरेपी योजना एजेंट",
+      "description": "थेरेपी की दिशा और सत्र के फोकस का सुझाव देता है।"
+    },
+    "monitoring": {
+      "name": "निगरानी एजेंट",
+      "description": "बच्चे की प्रगति और प्रवृत्ति संकेतकों को ट्रैक करता है।"
+    }
+  },
+  "features": {
+    "title": "यह कैसे काम करता है",
+    "description": "हमारा बहु-एजेंट AI सिस्टम स्वास्थ्यसेवा पेशेवरों के साथ काम करता है ताकि व्यापक प्रारंभिक जांच और देखभाल प्रदान की जा सके।",
+    "aiScreening": {
+      "title": "AI-संचालित जांच",
+      "description": "वीडियो और प्रश्नावली का उपयोग करके उन्नत व्यवहार विश्लेषण"
+    },
+    "multiRole": {
+      "title": "मल्टी-रोल प्लेटफॉर्म",
+      "description": "माता-पिता, डॉक्टरों और चिकित्सकों के लिए समर्पित इंटरफेस"
+    },
+    "humanLoop": {
+      "title": "मानव-केंद्रित दृष्टिकोण",
+      "description": "AI निर्णयों का समर्थन करता है, पेशेवार नियंत्रण में रहते हैं"
+    }
+  },
+  "auth": {
+    "roleSelection": "अपनी भूमिका चुनें",
+    "selectRole": "शुरू करने के लिए अपनी भूमिका चुनें",
+    "parent": {
+      "title": "माता-पिता",
+      "description": "अपने बच्चे के विकास की निगरानी करें और स्क्रीनिंग उपकरण तक पहुंचें"
+    },
+    "doctor": {
+      "title": "डॉक्टर",
+      "description": "जांच की समीक्षा करें और नैदानिक मूल्यांकन प्रदान करें"
+    },
+    "therapist": {
+      "title": "चिकित्सक",
+      "description": "थेरेपी योजनाएं बनाएं और सत्र की प्रगति को ट्रैक करें"
+    },
+    "continue": "जारी रखें",
+    "back": "वापस",
+    "signUp": "साइन अप करें",
+    "signIn": "साइन इन करें",
+    "name": "पूरा नाम",
+    "email": "ईमेल",
+    "password": "पासवर्ड",
+    "specialty": "विशेषज्ञता",
+    "state": "राज्य",
+    "district": "जिला",
+    "selectState": "राज्य चुनें",
+    "selectDistrict": "जिला चुनें",
+    "selectSpecialty": "विशेषज्ञता चुनें",
+    "toggleSignUp": "खाता नहीं है? साइन अप करें",
+    "toggleSignIn": "पहले से खाता है? साइन इन करें",
+    "termsAccept": "मैं शर्तों और शर्तों को स्वीकार करता हूं",
+    "consentAccept": "मैं डेटा साझाकरण सहमति को समझता हूं और स्वीकार करता हूं",
+    "signUpButton": "खाता बनाएं",
+    "signInButton": "साइन इन करें",
+    "selectErrorRole": "कृपया एक भूमिका चुनें",
+    "selectErrorLocation": "कृपया विशेषज्ञता, राज्य और जिला चुनें",
+    "providerLocation": "कृपया अपनी स्थान विवरण प्रदान करें"
+  },
+  "dashboard": {
+    "parent": {
+      "title": "माता-पिता डैशबोर्ड",
+      "welcome": "स्वागत है",
+      "overview": "अवलोकन",
+      "children": "बच्चे",
+      "screening": "जांच",
+      "progress": "प्रगति",
+      "awareness": "जागरूकता",
+      "professionals": "पेशेवर खोजें",
+      "reports": "रिपोर्टें"
+    },
+    "doctor": {
+      "title": "डॉक्टर डैशबोर्ड",
+      "welcome": "स्वागत है",
+      "patients": "रोगी",
+      "reviews": "समीक्षाएं",
+      "reports": "रिपोर्टें"
+    },
+    "therapist": {
+      "title": "चिकित्सक डैशबोर्ड",
+      "welcome": "स्वागत है",
+      "patients": "रोगी",
+      "sessions": "सत्र",
+      "plans": "थेरेपी योजनाएं"
+    }
+  },
+  "buttons": {
+    "next": "आगे",
+    "previous": "पिछला",
+    "save": "��हेजें",
+    "cancel": "रद्द करें",
+    "delete": "हटाएं",
+    "edit": "संपादित करें",
+    "submit": "जमा करें",
+    "logout": "लॉग आउट",
+    "view": "देखें",
+    "download": "डाउनलोड करें",
+    "add": "जोड़ें",
+    "close": "बंद करें"
+  },
+  "common": {
+    "loading": "लोड हो रहा है...",
+    "error": "त्रुटि",
+    "success": "सफल",
+    "warning": "चेतावनी",
+    "info": "जानकारी",
+    "noData": "कोई डेटा उपलब्ध नहीं",
+    "language": "भाषा",
+    "english": "English",
+    "hindi": "हिन्दी",
+    "theme": "थीम"
+  },
+  "roles": {
+    "parent": "माता-पिता",
+    "doctor": "डॉक्टर",
+    "therapist": "चिकित्सक"
+  },
+  "screening": {
+    "title": "जांच मूल्यांकन",
+    "startNew": "नई जांच शुरू करें",
+    "selectChild": "बच्चे का चयन करें",
+    "videoUpload": "वीडियो अपलोड",
+    "questionnaire": "प्रश्नावली",
+    "riskLevel": "जोखिम स्तर",
+    "lowRisk": "कम जोखिम",
+    "mediumRisk": "मध्यम जोखिम",
+    "highRisk": "उच्च जोखिम",
+    "inProgress": "प्रगति में",
+    "completed": "पूरा हुआ",
+    "pending": "लंबित"
+  },
+  "nav": {
+    "dashboard": "डैशबोर्ड",
+    "myChildren": "मेरे बच्चे",
+    "screening": "जांच",
+    "progress": "प्रगति",
+    "awareness": "जागरूकता",
+    "findCare": "देखभाल खोजें",
+    "reports": "रिपोर्टें",
+    "patients": "रोगी",
+    "reviews": "समीक्षाएं",
+    "sessions": "सत्र",
+    "settings": "सेटिंग्स",
+    "logout": "लॉग आउट"
+  },
+  "portal": {
+    "parentPortal": "माता-पिता पोर्टल",
+    "doctorPortal": "डॉक्टर पोर्टल",
+    "therapistPortal": "चिकित्सक पोर्टल",
+    "restoringSession": "आपका सत्र पुनः स्थापित किया जा रहा है...",
+    "aiSupportTitle": "AI-संचालित सहायता",
+    "aiSupportDesc": "हमारा बहु-एजेंट AI सिस्टम ऑटिज़्म के प्रारंभिक संकेतों की जांच करने में मदद करता है। याद रखें: AI निर्णयों का समर्थन करता है, लेकिन प्रशिक्षित पेशेवर अंतिम मूल्यांकन करते हैं।",
+    "quickActions": "त्वरित कार्य",
+    "addChildProfile": "बच्चे की प्रोफाइल जोड़ें",
+    "addChildDesc": "एक नया बच्चा पंजीकृत करें",
+    "startEarlyScreening": "प्रारंभिक जांच शुरू करें",
+    "startScreeningDesc": "AI-संचालित मूल्यांकन",
+    "weeklyCheckIns": "साप्ताहिक जांच",
+    "weeklyCheckinsDesc": "विकास को ट्रैक करें",
+    "viewProgress": "प्रगति देखें",
+    "viewProgressDesc": "विकासात्मक अंतर्दृष्टि",
+    "parentDashboardTitle": "माता-पिता डैशबोर्ड",
+    "parentDashboardDesc": "अपने बच्चों के विकास की निगरानी करें और स्क्रीनिंग उपकरण तक पहुंचें",
+    "doctorDashboardTitle": "डॉक्टर डैशबोर्ड",
+    "doctorDashboardDesc": "जांच की समीक्षा करें और रोगी मूल्यांकन का प्रबंधन करें",
+    "therapistDashboardTitle": "चिकित्सक डैशबोर्ड",
+    "therapistDashboardDesc": "थेरेपी सत्र और रोगी प्रगति का प्रबंधन करें"
+  },
+  "status": {
+    "scheduled": "निर्धारित",
+    "completed": "पूरा हुआ",
+    "cancelled": "रद्द किया गया",
+    "active": "सक्रिय",
+    "inactive": "निष्क्रिय",
+    "pending": "लंबित",
+    "approved": "अनुमोदित",
+    "rejected": "अस्वीकृत"
+  },
+  "table": {
+    "name": "नाम",
+    "email": "ईमेल",
+    "age": "आयु",
+    "status": "स्थिति",
+    "action": "कार्य",
+    "actions": "कार्य",
+    "date": "तारीख",
+    "time": "समय",
+    "risk": "जोखिम स्तर",
+    "score": "स्कोर",
+    "therapist": "चिकित्सक",
+    "doctor": "डॉक्टर"
+  },
+  "screeningTest": {
+    "title": "जांच मूल्यांकन",
+    "uploadVideo": "वीडियो अपलोड करें",
+    "fillQuestionnaire": "प्रश्नावली भरें",
+    "processing": "प्रसंस्करण",
+    "results": "परिणाम",
+    "selectChild": "बच्चे का चयन करें",
+    "uploadVideoDesc": "अपने बच्चे के व्यवहार का वीडियो अपलोड करें",
+    "questionnaireDesc": "आचरण मूल्यांकन प्रश्नों का उत्तर दें",
+    "step": "चरण",
+    "of": "का",
+    "eyeContact": "क्या आपका बच्चा आपका नाम पुकारने पर आँख मिलाता है?",
+    "pointing": "क्या आपका बच्चा दिलचस्पी दिखाने के लिए वस्तुओं की ओर इशारा करता है?",
+    "pretendPlay": "क्या आपका बच्चा नाटक खेल में संलग्न होता है?",
+    "childInterest": "क्या आपका बच्चा अन्य बच्चों में दिलचस्पी दिखाता है?",
+    "instructions": "क्या आपका बच्चा सरल निर्देशों का पालन करता है?",
+    "always": "हमेशा",
+    "sometimes": "कभी कभी",
+    "rarely": "शायद ही कभी",
+    "never": "कभी नहीं",
+    "analyzeEyeGaze": "आँख की गति पैटर्न का विश्लेषण किया जा रहा है...",
+    "detectJointAttention": "संयुक्त ध्यान पैटर्न का पता लगाया जा रहा है...",
+    "compareBehavior": "आयु आधार से व्यवहार की तुलना की जा रही है...",
+    "extractSignals": "व्यवहारिक संकेतों को निकाला जा रहा है...",
+    "generateRisk": "जोखिम मूल्यांकन तैयार किया जा रहा है...",
+    "riskLevel": "जोखिम स्तर",
+    "recommendations": "सिफारिशें",
+    "viewDetails": "विवरण देखें",
+    "nextSteps": "अगले कदम",
+    "contactProfessional": "आगे के मूल्यांकन के लिए एक स्वास्थ्य सेवा पेशेवर से संपर्क करें"
+  },
+  "awareness": {
+    "title": "ऑटिज़्म जागरूकता",
+    "subtitle": "ऑटिज़्म और प्रारंभिक हस्तक्षेप के बारे में जानें",
+    "earlySign": "ऑटिज़्म के प्रारंभिक संकेत",
+    "understanding": "ऑटिज़्म को समझना",
+    "intervention": "प्रारंभिक हस्तक्षेप",
+    "supportResources": "सहायता संसाधन",
+    "helpline": "हेल्पलाइन",
+    "learnMore": "अधिक जानें",
+    "resources": "संसाधन",
+    "readMore": "और पढ़ें"
+  },
+  "childProfile": {
+    "title": "बच्चे की प्रोफाइल",
+    "name": "बच्चे का नाम",
+    "dateOfBirth": "जन्म की तारीख",
+    "age": "आयु",
+    "gender": "लिंग",
+    "medicalHistory": "चिकित्सा इतिहास",
+    "notes": "नोट्स",
+    "edit": "संपादित करें",
+    "save": "सहेजें",
+    "cancel": "रद्द करें",
+    "delete": "हटाएं",
+    "screenings": "जांच",
+    "recentActivity": "हाल की गतिविधि",
+    "noScreenings": "अभी तक कोई जांच नहीं"
+  },
+  "progress": {
+    "title": "विकास प्रगति",
+    "overview": "अवलोकन",
+    "milestones": "मील के पत्थर",
+    "trends": "प्रवृत्तियां",
+    "comparison": "तुलना",
+    "month": "महीना",
+    "noData": "अभी तक कोई डेटा उपलब्ध नहीं है",
+    "developmentalAreas": "विकास के क्षेत्र",
+    "socialCommunication": "सामाजिक संचार",
+    "restrictedRepetitive": "प्रतिबंधित और दोहराए जाने वाले व्यवहार",
+    "emotionalRegulation": "भावनात्मक विनियमन",
+    "motorSkills": "गतिशील कौशल"
+  },
+  "reports": {
+    "title": "रिपोर्टें",
+    "screening": "जांच रिपोर्ट",
+    "clinical": "नैदानिक रिपोर्ट",
+    "therapy": "चिकित्सा रिपोर्ट",
+    "downloadPDF": "PDF डाउनलोड करें",
+    "view": "देखें",
+    "date": "तारीख",
+    "type": "प्रकार",
+    "noReports": "कोई रिपोर्ट उपलब्ध नहीं है",
+    "generatedBy": "द्वारा तैयार किया गया",
+    "summary": "सारांश"
+  },
+  "findProfessionals": {
+    "title": "देखभाल पेशेवर खोजें",
+    "search": "खोजें",
+    "filter": "फ़िल्टर",
+    "specialists": "विशेषज्ञ",
+    "doctors": "डॉक्टर",
+    "therapists": "चिकित्सक",
+    "location": "स्थान",
+    "expertise": "विशेषज्ञता",
+    "availability": "उपलब्धता",
+    "experience": "अनुभव",
+    "credentials": "प्रमाण पत्र",
+    "contact": "संपर्क",
+    "bookAppointment": "नियुक्ति बुक करें",
+    "noProfessionalsFound": "आपके मानदंडों के अनुरूप कोई पेशेवर नहीं मिला",
+    "viewProfile": "प्रोफाइल देखें"
+  },
+  "doctorReview": {
+    "title": "डॉक्टर की समीक्षा",
+    "screeningResults": "जांच के परिणाम",
+    "clinicalAssessment": "नैदानिक मूल्यांकन",
+    "diagnosis": "निदान",
+    "recommendations": "सिफारिशें",
+    "approveResult": "परिणाम को मंजूरी दें",
+    "rejectResult": "परिणाम को अस्वीकार करें",
+    "comments": "टिप्पणियां",
+    "addComment": "टिप्पणी जोड़ें",
+    "submit": "जमा करें",
+    "patientInfo": "रोगी की जानकारी",
+    "screeningDate": "जांच की तारीख",
+    "riskScore": "जोखिम स्कोर"
+  },
+  "therapyPlan": {
+    "title": "चिकित्सा योजना",
+    "createNew": "नई योजना बनाएं",
+    "planName": "योजना का नाम",
+    "objectives": "उद्देश्य",
+    "addObjective": "उद्देश्य जोड़ें",
+    "frequency": "आवृत्ति",
+    "duration": "अवधि",
+    "sessions": "सत्र",
+    "notes": "नोट्स",
+    "status": "स्थिति",
+    "save": "सहेजें",
+    "cancel": "रद्द करें",
+    "edit": "संपादित करें",
+    "delete": "हटाएं"
+  },
+  "sessions": {
+    "title": "चिकित्सा सत्र",
+    "upcoming": "आने वाला",
+    "completed": "पूरा हुआ",
+    "cancelled": "रद्द किया गया",
+    "schedule": "शेड्यूल",
+    "notes": "नोट्स",
+    "attendance": "उपस्थिति",
+    "duration": "अवधि",
+    "therapist": "चिकित्सक",
+    "patient": "रोगी",
+    "date": "तारीख",
+    "time": "समय",
+    "createSession": "सत्र बनाएं",
+    "noSessions": "कोई सत्र निर्धारित नहीं है"
+  },
+  "addChild": {
+    "title": "बच्चा जोड़ें",
+    "name": "बच्चे का नाम",
+    "dateOfBirth": "जन्म की तारीख",
+    "gender": "लिंग",
+    "male": "पुरुष",
+    "female": "महिला",
+    "other": "अन्य",
+    "medicalHistory": "चिकित्सा इतिहास",
+    "notes": "अतिरिक्त नोट्स",
+    "save": "बच्चा सहेजें",
+    "cancel": "रद्द करें",
+    "successMessage": "बच्चा सफलतापूर्वक जोड़ा गया"
+  },
+  "childrenList": {
+    "title": "मेरे बच्चे",
+    "noChildren": "अभी तक कोई बच्चा जोड़ा नहीं गया है",
+    "addChild": "बच्चा जोड़ें",
+    "viewProfile": "प्रोफाइल देखें",
+    "edit": "संपादित करें",
+    "delete": "हटाएं",
+    "recentScreening": "हाल की जांच",
+    "lastUpdated": "अंतिम अपडेट"
+  },
+  "doctorPatients": {
+    "title": "रोगी",
+    "search": "खोजें",
+    "filter": "फ़िल्टर",
+    "noPatients": "कोई रोगी नहीं मिला",
+    "viewProfile": "प्रोफाइल देखें",
+    "screenings": "जांच",
+    "lastReview": "अंतिम समीक्षा",
+    "status": "स्थिति"
+  },
+  "therapistPatients": {
+    "title": "रोगी",
+    "noPatients": "कोई रोगी नियुक्त नहीं है",
+    "activePlans": "सक्रिय योजनाएं",
+    "lastSession": "अंतिम सत्र",
+    "nextSession": "अगला सत्र"
+  },
+  "therapistSessions": {
+    "title": "सत्र",
+    "upcoming": "आने वाले सत्र",
+    "completed": "पूरे हुए सत्र",
+    "cancelled": "रद्द किए गए सत्र",
+    "schedule": "सत्र शेड्यूल करें",
+    "notes": "सत्र नोट्स",
+    "attendance": "उपस्थिति",
+    "noUpcoming": "कोई आने वाला सत्र नहीं है",
+    "viewNotes": "नोट्स देखें"
+  },
+  "sessionNotes": {
+    "title": "सत्र नोट्स",
+    "date": "सत्र की तारीख",
+    "duration": "अवधि",
+    "observations": "अवलोकन",
+    "progress": "प्रगति",
+    "nextSteps": "अगले कदम",
+    "save": "नोट्स सहेजें",
+    "cancel": "रद्द करें"
+  },
+  "createSession": {
+    "title": "सत्र बनाएं",
+    "selectPatient": "रोगी का चयन करें",
+    "date": "तारीख",
+    "time": "समय",
+    "duration": "अवधि",
+    "objective": "सत्र का उद्देश्य",
+    "notes": "नोट्स",
+    "create": "सत्र बनाएं",
+    "cancel": "रद्द करें"
+  }
+}

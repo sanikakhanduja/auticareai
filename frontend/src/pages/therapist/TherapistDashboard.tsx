@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { motion } from "framer-motion";
 import {
   Users,
@@ -76,6 +77,7 @@ const extractMeetLinkFromNotes = (notes?: string | null) => {
 };
 
 export default function TherapistDashboard() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [children, setChildren] = useState<Child[]>([]);
   const [sessions, setSessions] = useState<any[]>([]);
@@ -308,9 +310,9 @@ export default function TherapistDashboard() {
   return (
     <DashboardLayout>
       <div className="mb-8">
-        <h1 className="text-3xl font-bold">Therapist Dashboard</h1>
+        <h1 className="text-3xl font-bold">{t("portal.therapistDashboardTitle")}</h1>
         <p className="text-muted-foreground mt-2">
-          Manage therapy plans and track session progress
+          {t("portal.therapistDashboardDesc")}
         </p>
       </div>
 

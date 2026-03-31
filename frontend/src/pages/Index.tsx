@@ -1,11 +1,14 @@
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Bot, Shield, Users, Brain, ArrowRight, CheckCircle2, HeartPulse, Activity } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 
 export default function Index() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   const scrollToLogin = () => {
     document.getElementById("login-section")?.scrollIntoView({ behavior: "smooth" });
@@ -14,45 +17,45 @@ export default function Index() {
   const features = [
     {
       icon: Brain,
-      title: "AI-Powered Screening",
-      description: "Advanced behavioral analysis using video and questionnaires",
+      title: t("features.aiScreening.title"),
+      description: t("features.aiScreening.description"),
     },
     {
       icon: Users,
-      title: "Multi-Role Platform",
-      description: "Dedicated interfaces for parents, doctors, and therapists",
+      title: t("features.multiRole.title"),
+      description: t("features.multiRole.description"),
     },
     {
       icon: Shield,
-      title: "Human-in-the-Loop",
-      description: "AI supports decisions, professionals remain in control",
+      title: t("features.humanLoop.title"),
+      description: t("features.humanLoop.description"),
     },
   ];
 
   const agents = [
     {
-      name: "Screening Agent",
+      name: t("agents.screening.name"),
       color: "bg-agent-screening",
       icon: Bot,
-      description: "Analyzes behavior patterns from screening inputs.",
+      description: t("agents.screening.description"),
     },
     {
-      name: "Clinical Summary Agent",
+      name: t("agents.clinical.name"),
       color: "bg-agent-clinical",
       icon: Brain,
-      description: "Builds structured clinical summaries for doctors.",
+      description: t("agents.clinical.description"),
     },
     {
-      name: "Therapy Planning Agent",
+      name: t("agents.therapy.name"),
       color: "bg-agent-therapy",
       icon: HeartPulse,
-      description: "Suggests therapy direction and session focus.",
+      description: t("agents.therapy.description"),
     },
     {
-      name: "Monitoring Agent",
+      name: t("agents.monitoring.name"),
       color: "bg-agent-monitoring",
       icon: Activity,
-      description: "Tracks child progress and trend indicators.",
+      description: t("agents.monitoring.description"),
     },
   ];
 
@@ -66,14 +69,15 @@ export default function Index() {
               <Bot className="h-6 w-6 text-white" />
             </div>
             <div>
-              <span className="font-bold text-xl tracking-tight">AutiCare</span>
-              <span className="text-primary ml-1 font-bold">AI</span>
+              <span className="font-bold text-xl tracking-tight">{t("header.title")}</span>
+              <span className="text-primary ml-1 font-bold">{t("header.subtitle")}</span>
             </div>
           </div>
           <div className="flex items-center gap-2">
             <ThemeToggle />
+            <LanguageSwitcher />
             <Button onClick={scrollToLogin} variant="default" className="rounded-full px-6">
-              Get Started
+              {t("header.getStarted")}
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           </div>
@@ -105,18 +109,17 @@ export default function Index() {
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
                 </span>
-                AI-Enabled Early Support
+                {t("hero.badge")}
               </div>
               
               <h1 className="text-5xl md:text-7xl font-bold mb-8 leading-[1.1] tracking-tight text-foreground">
-                Compassionate Early <br />
-                <span className="text-primary">Autism Screening</span>
-                <p className="text-3xl md:text-4xl mt-2 font-medium opacity-90">Powered by AI</p>
+                {t("hero.title")} <br />
+                <span className="text-primary">{t("hero.titleHighlight")}</span>
+                <p className="text-3xl md:text-4xl mt-2 font-medium opacity-90">{t("hero.subtitle")}</p>
               </h1>
               
               <p className="text-lg md:text-xl text-muted-foreground/90 max-w-xl mb-12 leading-relaxed">
-                A supportive platform connecting parents, doctors, and therapists to enable 
-                earlier understanding, guided screening, and personalized care.
+                {t("hero.description")}
               </p>
               
               <div className="flex flex-wrap gap-5">
@@ -126,7 +129,7 @@ export default function Index() {
                   onClick={scrollToLogin}
                   className="rounded-full px-10 shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-all"
                 >
-                  Get Started
+                  {t("header.getStarted")}
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Button>
                 <Button 
@@ -135,7 +138,7 @@ export default function Index() {
                   onClick={() => navigate("/auth")}
                   className="rounded-full px-10 border-2 hover:bg-primary/5 transition-all"
                 >
-                  Learn More
+                  {t("header.learnMore")}
                 </Button>
               </div>
             </motion.div>
@@ -148,10 +151,9 @@ export default function Index() {
         <div className="container max-w-6xl mx-auto px-6">
           <div className="grid gap-12 lg:grid-cols-2 items-center">
             <div className="lg:pr-12">
-              <h2 className="text-4xl md:text-5xl font-bold mb-8 text-foreground tracking-tight leading-tight">Our Intelligent Support Ecosystem</h2>
+              <h2 className="text-4xl md:text-5xl font-bold mb-8 text-foreground tracking-tight leading-tight">{t("agents.title")}</h2>
               <p className="text-xl text-muted-foreground leading-relaxed">
-                The platform seamlessly integrates four specialized AI agents that work in harmony 
-                to support every step of your journey—from initial screening to clinical review and therapy planning.
+                {t("agents.description")}
               </p>
             </div>
             
@@ -184,10 +186,9 @@ export default function Index() {
       <section className="py-24 bg-muted/30">
         <div className="container max-w-6xl mx-auto px-6">
           <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4 tracking-tight">How It Works</h2>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4 tracking-tight">{t("features.title")}</h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-              Our multi-agent AI system works alongside healthcare professionals
-              to provide comprehensive early screening and care.
+              {t("features.description")}
             </p>
           </div>
 
@@ -226,12 +227,10 @@ export default function Index() {
             
             <Shield className="h-20 w-20 mx-auto mb-8 text-primary" />
             <h2 className="text-4xl font-bold mb-6 tracking-tight">
-              AI Supports, Humans Decide
+              {t("features.humanLoop.title")}
             </h2>
             <p className="text-xl text-white/80 max-w-2xl mx-auto mb-10 leading-relaxed">
-              Our AI agents provide intelligent insights and recommendations,
-              but final clinical decisions are always made by qualified healthcare
-              professionals. Your child's care is in expert hands.
+              {t("features.humanLoop.description")}
             </p>
             <div className="flex flex-wrap justify-center gap-4">
               {[
@@ -260,15 +259,15 @@ export default function Index() {
           </div>
           <h2 className="text-4xl md:text-5xl font-bold mb-6 tracking-tight">Ready to Take the First Step?</h2>
           <p className="text-xl text-muted-foreground mb-12 leading-relaxed">
-            Create your account and begin your child's developmental screening journey with our supportive AI-enabled platform.
+            {t("hero.description")}
           </p>
           <div className="flex flex-col sm:flex-row justify-center gap-4">
             <Button size="xl" variant="default" onClick={() => navigate("/auth")} className="rounded-full px-12 shadow-lg shadow-primary/20">
-              Create Account
+              {t("auth.signUpButton")}
               <ArrowRight className="ml-2 h-5 w-5" />
             </Button>
             <Button size="xl" variant="outline" onClick={() => navigate("/auth")} className="rounded-full px-12 border-2">
-              Sign In
+              {t("auth.signInButton")}
             </Button>
           </div>
         </div>

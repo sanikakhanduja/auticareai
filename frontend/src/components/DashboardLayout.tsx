@@ -1,5 +1,6 @@
 import { ReactNode } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { motion } from "framer-motion";
 import {
   Home,
@@ -19,6 +20,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { authService } from "@/services/auth";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 
 interface NavItem {
   label: string;
@@ -32,33 +34,62 @@ import {
   ClipboardList,
 } from "lucide-react";
 
-const roleNavItems: Record<UserRole, NavItem[]> = {
+interface RoleNavItemsConfig {
+  parent: Omit<NavItem, 'label'>[];
+  doctor: Omit<NavItem, 'label'>[];
+  therapist: Omit<NavItem, 'label'>[];
+}
+
+const roleNavItemsConfig: RoleNavItemsConfig = {
   parent: [
-    { label: "Dashboard", href: "/parent", icon: Home },
-    { label: "My Children", href: "/parent/children", icon: Baby },
-    { label: "Screening", href: "/parent/screening", icon: FileText },
-    { label: "Progress", href: "/parent/progress", icon: Calendar },
-    { label: "Awareness", href: "/parent/awareness", icon: BookOpen },
-    { label: "Find Care", href: "/parent/find", icon: SearchIcon },
-    { label: "Reports", href: "/parent/reports", icon: ClipboardList },
+    { href: "/parent", icon: Home },
+    { href: "/parent/children", icon: Baby },
+    { href: "/parent/screening", icon: FileText },
+    { href: "/parent/progress", icon: Calendar },
+    { href: "/parent/awareness", icon: BookOpen },
+    { href: "/parent/find", icon: SearchIcon },
+    { href: "/parent/reports", icon: ClipboardList },
   ],
   doctor: [
-    { label: "Dashboard", href: "/doctor", icon: Home },
-    { label: "Patients", href: "/doctor/patients", icon: Users },
-    { label: "Reviews", href: "/doctor/reviews", icon: FileText },
-    { label: "Reports", href: "/doctor/reports", icon: ClipboardList },
+    { href: "/doctor", icon: Home },
+    { href: "/doctor/patients", icon: Users },
+    { href: "/doctor/reviews", icon: FileText },
+    { href: "/doctor/reports", icon: ClipboardList },
   ],
   therapist: [
-    { label: "Dashboard", href: "/therapist", icon: Home },
-    { label: "Patients", href: "/therapist/patients", icon: Users },
-    { label: "Sessions", href: "/therapist/sessions", icon: Calendar },
+    { href: "/therapist", icon: Home },
+    { href: "/therapist/patients", icon: Users },
+    { href: "/therapist/sessions", icon: Calendar },
   ],
 };
 
-const roleLabels: Record<UserRole, string> = {
-  parent: "Parent Portal",
-  doctor: "Doctor Portal",
-  therapist: "Therapist Portal",
+const roleNavLabels: Record<UserRole, string[]> = {
+  parent: [
+    "nav.dashboard",
+    "nav.myChildren",
+    "nav.screening",
+    "nav.progress",
+    "nav.awareness",
+    "nav.findCare",
+    "nav.reports",
+  ],
+  doctor: [
+    "nav.dashboard",
+    "nav.patients",
+    "nav.reviews",
+    "nav.reports",
+  ],
+  therapist: [
+    "nav.dashboard",
+    "nav.patients",
+    "nav.sessions",
+  ],
+};
+
+const roleLabelsMap: Record<UserRole, string> = {
+  parent: "portal.parentPortal",
+  doctor: "portal.doctorPortal",
+  therapist: "portal.therapistPortal",
 };
 
 const roleIcons: Record<UserRole, React.ElementType> = {
@@ -72,6 +103,7 @@ interface DashboardLayoutProps {
 }
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
+  const { t } = useTranslation();
   const { currentUser, authInitialized, setCurrentUser } = useAppStore();
   const location = useLocation();
   const navigate = useNavigate();
@@ -81,7 +113,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="flex items-center gap-2 text-muted-foreground">
           <Loader2 className="h-5 w-5 animate-spin" />
-          <span>Restoring your session...</span>
+          <span>{t("portal.restoringSession")}</span>
         </div>
       </div>
     );
@@ -91,7 +123,12 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     return <Navigate to="/auth" replace />;
   }
 
-  const navItems = roleNavItems[currentUser.role];
+  const navItemsConfig = roleNavItemsConfig[currentUser.role];
+  const navLabels = roleNavLabels[currentUser.role];
+  const navItems: NavItem[] = navItemsConfig.map((item, index) => ({
+    ...item,
+    label: t(navLabels[index]),
+  }));
   const RoleIcon = roleIcons[currentUser.role];
 
   const handleLogout = async () => {
@@ -123,7 +160,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 <RoleIcon className="h-5 w-5 text-primary-foreground" />
               </div>
               <div>
-                <p className="text-sm font-medium">{roleLabels[currentUser.role]}</p>
+                <p className="text-sm font-medium">{t(roleLabelsMap[currentUser.role])}</p>
                 <p className="text-xs text-muted-foreground">{currentUser.name}</p>
               </div>
             </div>
@@ -154,8 +191,12 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           {/* Footer */}
           <div className="border-t border-border p-4 space-y-2">
             <div className="flex items-center justify-between px-3 py-1">
-              <span className="text-sm text-muted-foreground">Theme</span>
+              <span className="text-sm text-muted-foreground">{t("common.theme")}</span>
               <ThemeToggle />
+            </div>
+            <div className="flex items-center justify-between px-3 py-1">
+              <span className="text-sm text-muted-foreground">{t("common.language")}</span>
+              <LanguageSwitcher />
             </div>
             <Button
               variant="ghost"
@@ -163,7 +204,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               onClick={handleLogout}
             >
               <LogOut className="mr-2 h-5 w-5" />
-              Sign Out
+              {t("nav.logout")}
             </Button>
           </div>
         </div>

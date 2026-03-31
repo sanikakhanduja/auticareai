@@ -1,0 +1,446 @@
+{
+  "header": {
+    "title": "AutiCare",
+    "subtitle": "AI",
+    "getStarted": "Get Started",
+    "learnMore": "Learn More",
+    "language": "Language"
+  },
+  "hero": {
+    "badge": "AI-Enabled Early Support",
+    "title": "Compassionate Early",
+    "titleHighlight": "Autism Screening",
+    "subtitle": "Powered by AI",
+    "description": "A supportive platform connecting parents, doctors, and therapists to enable earlier understanding, guided screening, and personalized care."
+  },
+  "agents": {
+    "title": "Our Intelligent Support Ecosystem",
+    "description": "The platform seamlessly integrates four specialized AI agents that work in harmony to support every step of your journey—from initial screening to clinical review and therapy planning.",
+    "screening": {
+      "name": "Screening Agent",
+      "description": "Analyzes behavior patterns from screening inputs."
+    },
+    "clinical": {
+      "name": "Clinical Summary Agent",
+      "description": "Builds structured clinical summaries for doctors."
+    },
+    "therapy": {
+      "name": "Therapy Planning Agent",
+      "description": "Suggests therapy direction and session focus."
+    },
+    "monitoring": {
+      "name": "Monitoring Agent",
+      "description": "Tracks child progress and trend indicators."
+    }
+  },
+  "features": {
+    "title": "How It Works",
+    "description": "Our multi-agent AI system works alongside healthcare professionals to provide comprehensive early screening and care.",
+    "aiScreening": {
+      "title": "AI-Powered Screening",
+      "description": "Advanced behavioral analysis using video and questionnaires"
+    },
+    "multiRole": {
+      "title": "Multi-Role Platform",
+      "description": "Dedicated interfaces for parents, doctors, and therapists"
+    },
+    "humanLoop": {
+      "title": "Human-in-the-Loop",
+      "description": "AI supports decisions, professionals remain in control"
+    }
+  },
+  "auth": {
+    "roleSelection": "Select Your Role",
+    "selectRole": "Choose your role to get started",
+    "parent": {
+      "title": "Parent",
+      "description": "Monitor your child's development and access screening tools"
+    },
+    "doctor": {
+      "title": "Doctor",
+      "description": "Review screenings and provide clinical assessments"
+    },
+    "therapist": {
+      "title": "Therapist",
+      "description": "Create therapy plans and track session progress"
+    },
+    "continue": "Continue",
+    "back": "Back",
+    "signUp": "Sign Up",
+    "signIn": "Sign In",
+    "name": "Full Name",
+    "email": "Email",
+    "password": "Password",
+    "specialty": "Specialization",
+    "state": "State",
+    "district": "District",
+    "selectState": "Select State",
+    "selectDistrict": "Select District",
+    "selectSpecialty": "Select Specialization",
+    "toggleSignUp": "Don't have an account? Sign Up",
+    "toggleSignIn": "Already have an account? Sign In",
+    "termsAccept": "I accept the terms and conditions",
+    "consentAccept": "I understand and accept the data sharing consent",
+    "signUpButton": "Create Account",
+    "signInButton": "Sign In",
+    "selectErrorRole": "Please select a role",
+    "selectErrorLocation": "Please select specialization, state and district",
+    "providerLocation": "Please provide your location details"
+  },
+  "dashboard": {
+    "parent": {
+      "title": "Parent Dashboard",
+      "welcome": "Welcome",
+      "overview": "Overview",
+      "children": "Children",
+      "screening": "Screening",
+      "progress": "Progress",
+      "awareness": "Awareness",
+      "professionals": "Find Professionals",
+      "reports": "Reports"
+    },
+    "doctor": {
+      "title": "Doctor Dashboard",
+      "welcome": "Welcome",
+      "patients": "Patients",
+      "reviews": "Reviews",
+      "reports": "Reports"
+    },
+    "therapist": {
+      "title": "Therapist Dashboard",
+      "welcome": "Welcome",
+      "patients": "Patients",
+      "sessions": "Sessions",
+      "plans": "Therapy Plans"
+    }
+  },
+  "buttons": {
+    "next": "Next",
+    "previous": "Previous",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "submit": "Submit",
+    "logout": "Logout",
+    "view": "View",
+    "download": "Download",
+    "add": "Add",
+    "close": "Close"
+  },
+  "common": {
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "warning": "Warning",
+    "info": "Information",
+    "noData": "No data available",
+    "language": "Language",
+    "english": "English",
+    "hindi": "हिन्दी",
+    "theme": "Theme"
+  },
+  "roles": {
+    "parent": "Parent",
+    "doctor": "Doctor",
+    "therapist": "Therapist"
+  },
+  "screening": {
+    "title": "Screening Assessment",
+    "startNew": "Start New Screening",
+    "selectChild": "Select Child",
+    "videoUpload": "Video Upload",
+    "questionnaire": "Questionnaire",
+    "riskLevel": "Risk Level",
+    "lowRisk": "Low Risk",
+    "mediumRisk": "Medium Risk",
+    "highRisk": "High Risk",
+    "inProgress": "In Progress",
+    "completed": "Completed",
+    "pending": "Pending"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "myChildren": "My Children",
+    "screening": "Screening",
+    "progress": "Progress",
+    "awareness": "Awareness",
+    "findCare": "Find Care",
+    "reports": "Reports",
+    "patients": "Patients",
+    "reviews": "Reviews",
+    "sessions": "Sessions",
+    "settings": "Settings",
+    "logout": "Logout"
+  },
+  "portal": {
+    "parentPortal": "Parent Portal",
+    "doctorPortal": "Doctor Portal",
+    "therapistPortal": "Therapist Portal",
+    "restoringSession": "Restoring your session...",
+    "aiSupportTitle": "AI-Powered Support",
+    "aiSupportDesc": "Our multi-agent AI system helps screen for early signs of autism. Remember: AI supports decisions, but trained professionals make final assessments.",
+    "quickActions": "Quick Actions",
+    "addChildProfile": "Add Child Profile",
+    "addChildDesc": "Register a new child",
+    "startEarlyScreening": "Start Early Screening",
+    "startScreeningDesc": "AI-powered assessment",
+    "weeklyCheckIns": "Weekly Check-ins",
+    "weeklyCheckinsDesc": "Track development",
+    "viewProgress": "View Progress",
+    "viewProgressDesc": "Developmental insights",
+    "parentDashboardTitle": "Parent Dashboard",
+    "parentDashboardDesc": "Monitor your children's development and access screening tools",
+    "doctorDashboardTitle": "Doctor Dashboard",
+    "doctorDashboardDesc": "Review screenings and manage patient assessments",
+    "therapistDashboardTitle": "Therapist Dashboard",
+    "therapistDashboardDesc": "Manage therapy sessions and patient progress"
+  },
+  "status": {
+    "scheduled": "Scheduled",
+    "completed": "Completed",
+    "cancelled": "Cancelled",
+    "active": "Active",
+    "inactive": "Inactive",
+    "pending": "Pending",
+    "approved": "Approved",
+    "rejected": "Rejected"
+  },
+  "table": {
+    "name": "Name",
+    "email": "Email",
+    "age": "Age",
+    "status": "Status",
+    "action": "Action",
+    "actions": "Actions",
+    "date": "Date",
+    "time": "Time",
+    "risk": "Risk Level",
+    "score": "Score",
+    "therapist": "Therapist",
+    "doctor": "Doctor"
+  },
+  "screeningTest": {
+    "title": "Screening Assessment",
+    "uploadVideo": "Upload Video",
+    "fillQuestionnaire": "Fill Questionnaire",
+    "processing": "Processing",
+    "results": "Results",
+    "selectChild": "Select Child",
+    "uploadVideoDesc": "Upload a video of your child's behavior",
+    "questionnaireDesc": "Answer behavioral assessment questions",
+    "step": "Step",
+    "of": "of",
+    "eyeContact": "Does your child make eye contact when you call their name?",
+    "pointing": "Does your child point at objects to show interest?",
+    "pretendPlay": "Does your child engage in pretend play?",
+    "childInterest": "Does your child show interest in other children?",
+    "instructions": "Does your child respond to simple instructions?",
+    "always": "Always",
+    "sometimes": "Sometimes",
+    "rarely": "Rarely",
+    "never": "Never",
+    "analyzeEyeGaze": "Analyzing eye gaze patterns...",
+    "detectJointAttention": "Detecting joint attention patterns...",
+    "compareBehavior": "Comparing behavior to age baseline...",
+    "extractSignals": "Extracting behavioral signals...",
+    "generateRisk": "Generating risk assessment...",
+    "riskLevel": "Risk Level",
+    "recommendations": "Recommendations",
+    "viewDetails": "View Details",
+    "nextSteps": "Next Steps",
+    "contactProfessional": "Contact a healthcare professional for further evaluation"
+  },
+  "awareness": {
+    "title": "Autism Awareness",
+    "subtitle": "Learn about autism and early intervention",
+    "earlySign": "Early Signs of Autism",
+    "understanding": "Understanding Autism",
+    "intervention": "Early Intervention",
+    "supportResources": "Support Resources",
+    "helpline": "Helpline",
+    "learnMore": "Learn More",
+    "resources": "Resources",
+    "readMore": "Read More"
+  },
+  "childProfile": {
+    "title": "Child Profile",
+    "name": "Child Name",
+    "dateOfBirth": "Date of Birth",
+    "age": "Age",
+    "gender": "Gender",
+    "medicalHistory": "Medical History",
+    "notes": "Notes",
+    "edit": "Edit",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "screenings": "Screenings",
+    "recentActivity": "Recent Activity",
+    "noScreenings": "No screenings yet"
+  },
+  "progress": {
+    "title": "Development Progress",
+    "overview": "Overview",
+    "milestones": "Milestones",
+    "trends": "Trends",
+    "comparison": "Comparison",
+    "month": "Month",
+    "noData": "No data available yet",
+    "developmentalAreas": "Developmental Areas",
+    "socialCommunication": "Social Communication",
+    "restrictedRepetitive": "Restricted & Repetitive Behaviors",
+    "emotionalRegulation": "Emotional Regulation",
+    "motorSkills": "Motor Skills"
+  },
+  "reports": {
+    "title": "Reports",
+    "screening": "Screening Report",
+    "clinical": "Clinical Report",
+    "therapy": "Therapy Report",
+    "downloadPDF": "Download PDF",
+    "view": "View",
+    "date": "Date",
+    "type": "Type",
+    "noReports": "No reports available",
+    "generatedBy": "Generated by",
+    "summary": "Summary"
+  },
+  "findProfessionals": {
+    "title": "Find Care Professionals",
+    "search": "Search",
+    "filter": "Filter",
+    "specialists": "Specialists",
+    "doctors": "Doctors",
+    "therapists": "Therapists",
+    "location": "Location",
+    "expertise": "Expertise",
+    "availability": "Availability",
+    "experience": "Experience",
+    "credentials": "Credentials",
+    "contact": "Contact",
+    "bookAppointment": "Book Appointment",
+    "noProfessionalsFound": "No professionals found matching your criteria",
+    "viewProfile": "View Profile"
+  },
+  "doctorReview": {
+    "title": "Doctor Review",
+    "screeningResults": "Screening Results",
+    "clinicalAssessment": "Clinical Assessment",
+    "diagnosis": "Diagnosis",
+    "recommendations": "Recommendations",
+    "approveResult": "Approve Result",
+    "rejectResult": "Reject Result",
+    "comments": "Comments",
+    "addComment": "Add Comment",
+    "submit": "Submit",
+    "patientInfo": "Patient Information",
+    "screeningDate": "Screening Date",
+    "riskScore": "Risk Score"
+  },
+  "therapyPlan": {
+    "title": "Therapy Plan",
+    "createNew": "Create New Plan",
+    "planName": "Plan Name",
+    "objectives": "Objectives",
+    "addObjective": "Add Objective",
+    "frequency": "Frequency",
+    "duration": "Duration",
+    "sessions": "Sessions",
+    "notes": "Notes",
+    "status": "Status",
+    "save": "Save",
+    "cancel": "Cancel",
+    "edit": "Edit",
+    "delete": "Delete"
+  },
+  "sessions": {
+    "title": "Therapy Sessions",
+    "upcoming": "Upcoming",
+    "completed": "Completed",
+    "cancelled": "Cancelled",
+    "schedule": "Schedule",
+    "notes": "Notes",
+    "attendance": "Attendance",
+    "duration": "Duration",
+    "therapist": "Therapist",
+    "patient": "Patient",
+    "date": "Date",
+    "time": "Time",
+    "createSession": "Create Session",
+    "noSessions": "No sessions scheduled"
+  },
+  "addChild": {
+    "title": "Add Child",
+    "name": "Child's Name",
+    "dateOfBirth": "Date of Birth",
+    "gender": "Gender",
+    "male": "Male",
+    "female": "Female",
+    "other": "Other",
+    "medicalHistory": "Medical History",
+    "notes": "Additional Notes",
+    "save": "Save Child",
+    "cancel": "Cancel",
+    "successMessage": "Child added successfully"
+  },
+  "childrenList": {
+    "title": "My Children",
+    "noChildren": "No children added yet",
+    "addChild": "Add Child",
+    "viewProfile": "View Profile",
+    "edit": "Edit",
+    "delete": "Delete",
+    "recentScreening": "Recent Screening",
+    "lastUpdated": "Last Updated"
+  },
+  "doctorPatients": {
+    "title": "Patients",
+    "search": "Search",
+    "filter": "Filter",
+    "noPatients": "No patients found",
+    "viewProfile": "View Profile",
+    "screenings": "Screenings",
+    "lastReview": "Last Review",
+    "status": "Status"
+  },
+  "therapistPatients": {
+    "title": "Patients",
+    "noPatients": "No patients assigned",
+    "activePlans": "Active Plans",
+    "lastSession": "Last Session",
+    "nextSession": "Next Session"
+  },
+  "therapistSessions": {
+    "title": "Sessions",
+    "upcoming": "Upcoming Sessions",
+    "completed": "Completed Sessions",
+    "cancelled": "Cancelled Sessions",
+    "schedule": "Schedule Session",
+    "notes": "Session Notes",
+    "attendance": "Attendance",
+    "noUpcoming": "No upcoming sessions",
+    "viewNotes": "View Notes"
+  },
+  "sessionNotes": {
+    "title": "Session Notes",
+    "date": "Session Date",
+    "duration": "Duration",
+    "observations": "Observations",
+    "progress": "Progress",
+    "nextSteps": "Next Steps",
+    "save": "Save Notes",
+    "cancel": "Cancel"
+  },
+  "createSession": {
+    "title": "Create Session",
+    "selectPatient": "Select Patient",
+    "date": "Date",
+    "time": "Time",
+    "duration": "Duration",
+    "objective": "Session Objective",
+    "notes": "Notes",
+    "create": "Create Session",
+    "cancel": "Cancel"
+  }
+}
