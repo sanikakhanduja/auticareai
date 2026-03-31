@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { motion } from "framer-motion";
 import {
   Baby,
@@ -69,6 +70,7 @@ const extractSessionLinkFromNotes = (notes?: string | null) => {
 };
 
 export default function ParentDashboard() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { setSelectedChildId } = useAppStore();
   const [children, setChildren] = useState<Child[]>([]);
@@ -204,29 +206,29 @@ export default function ParentDashboard() {
   const quickActions = [
     {
       icon: Baby,
-      label: "Add Child Profile",
-      description: "Register a new child",
+      label: t("portal.addChildProfile"),
+      description: t("portal.addChildDesc"),
       href: "/parent/children/add",
       color: "bg-secondary/20",
     },
     {
       icon: FileSearch,
-      label: "Start Early Screening",
-      description: "AI-powered assessment",
+      label: t("portal.startEarlyScreening"),
+      description: t("portal.startScreeningDesc"),
       href: "/parent/screening",
       color: "bg-primary/20",
     },
     {
       icon: Calendar,
-      label: "Weekly Check-ins",
-      description: "Track development",
+      label: t("portal.weeklyCheckIns"),
+      description: t("portal.weeklyCheckinsDesc"),
       href: "/parent/checkins",
       color: "bg-agent-monitoring/20",
     },
     {
       icon: TrendingUp,
-      label: "View Progress",
-      description: "Developmental insights",
+      label: t("portal.viewProgress"),
+      description: t("portal.viewProgressDesc"),
       href: "/parent/progress",
       color: "bg-success/20",
     },
@@ -251,9 +253,9 @@ export default function ParentDashboard() {
     <DashboardLayout>
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold">Parent Dashboard</h1>
+        <h1 className="text-3xl font-bold">{t("portal.parentDashboardTitle")}</h1>
         <p className="text-muted-foreground mt-2">
-          Monitor your children's development and access screening tools
+          {t("portal.parentDashboardDesc")}
         </p>
       </div>
 
@@ -268,10 +270,9 @@ export default function ParentDashboard() {
             <Bot className="h-6 w-6" />
           </div>
           <div className="flex-1">
-            <h3 className="font-semibold text-lg mb-1">AI-Powered Support</h3>
+            <h3 className="font-semibold text-lg mb-1">{t("portal.aiSupportTitle")}</h3>
             <p className="text-sm opacity-90">
-              Our multi-agent AI system helps screen for early signs of autism.
-              Remember: AI supports decisions, but trained professionals make final assessments.
+              {t("portal.aiSupportDesc")}
             </p>
           </div>
         </div>
@@ -279,7 +280,7 @@ export default function ParentDashboard() {
 
       {/* Quick Actions */}
       <div className="mb-8">
-        <h2 className="text-xl font-semibold mb-4">Quick Actions</h2>
+        <h2 className="text-xl font-semibold mb-4">{t("portal.quickActions")}</h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {quickActions.map((action, index) => (
             <motion.button

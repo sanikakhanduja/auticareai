@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { motion } from "framer-motion";
 import {
   Users,
@@ -21,6 +22,7 @@ import { Child } from "@/lib/store";
 import { childrenService } from "@/services/data";
 
 export default function DoctorDashboard() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
   const [children, setChildren] = useState<Child[]>([]);
@@ -129,23 +131,23 @@ export default function DoctorDashboard() {
     <DashboardLayout>
       <Tabs value={activeTab} onValueChange={handleTabChange}>
         <div className="mb-8">
-          <h1 className="text-3xl font-bold">Doctor Dashboard</h1>
+          <h1 className="text-3xl font-bold">{t("portal.doctorDashboardTitle")}</h1>
           <p className="text-muted-foreground mt-2">
-            Review AI-generated screening results and provide clinical assessments
+            {t("portal.doctorDashboardDesc")}
           </p>
           <div className="mt-6">
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="dashboard" className="gap-2">
                 <FileSearch className="h-4 w-4" />
-                Dashboard
+                {t("nav.dashboard")}
               </TabsTrigger>
               <TabsTrigger value="patients" className="gap-2">
                 <Users className="h-4 w-4" />
-                Patients
+                {t("nav.patients")}
               </TabsTrigger>
               <TabsTrigger value="reviews" className="gap-2">
                 <FileText className="h-4 w-4" />
-                Reviews
+                {t("nav.reviews")}
               </TabsTrigger>
             </TabsList>
           </div>
