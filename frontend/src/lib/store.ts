@@ -80,6 +80,7 @@ interface AppState {
   reports: Report[];
   therapySessions: TherapySession[];
   selectedChildId: string;
+  language: 'en' | 'hi';
   setCurrentUser: (user: User | null) => void;
   setAuthInitialized: (initialized: boolean) => void;
   addChild: (child: Child) => void;
@@ -91,6 +92,7 @@ interface AppState {
   updateTherapySession: (id: string, updates: Partial<TherapySession>) => void;
   getSessionsForChild: (childId: string) => TherapySession[];
   setSelectedChildId: (childId: string) => void;
+  setLanguage: (language: 'en' | 'hi') => void;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -102,6 +104,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   therapySessions: [],
   selectedChildId:
     typeof window !== 'undefined' ? localStorage.getItem('selectedChildId') || '' : '',
+  language: (typeof window !== 'undefined' ? localStorage.getItem('language') || 'en' : 'en') as 'en' | 'hi',
   setCurrentUser: (user) => set({ currentUser: user }),
   setAuthInitialized: (initialized) => set({ authInitialized: initialized }),
   addChild: (child) => set((state) => ({ children: [...state.children, child] })),
@@ -138,5 +141,11 @@ export const useAppStore = create<AppState>((set, get) => ({
       }
     }
     set({ selectedChildId: childId });
+  },
+  setLanguage: (language) => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('language', language);
+    }
+    set({ language });
   },
 }));

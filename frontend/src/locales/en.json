@@ -1,0 +1,162 @@
+{
+  "header": {
+    "title": "AutiCare",
+    "subtitle": "AI",
+    "getStarted": "Get Started",
+    "learnMore": "Learn More",
+    "language": "Language"
+  },
+  "hero": {
+    "badge": "AI-Enabled Early Support",
+    "title": "Compassionate Early",
+    "titleHighlight": "Autism Screening",
+    "subtitle": "Powered by AI",
+    "description": "A supportive platform connecting parents, doctors, and therapists to enable earlier understanding, guided screening, and personalized care."
+  },
+  "agents": {
+    "title": "Our Intelligent Support Ecosystem",
+    "description": "The platform seamlessly integrates four specialized AI agents that work in harmony to support every step of your journey—from initial screening to clinical review and therapy planning.",
+    "screening": {
+      "name": "Screening Agent",
+      "description": "Analyzes behavior patterns from screening inputs."
+    },
+    "clinical": {
+      "name": "Clinical Summary Agent",
+      "description": "Builds structured clinical summaries for doctors."
+    },
+    "therapy": {
+      "name": "Therapy Planning Agent",
+      "description": "Suggests therapy direction and session focus."
+    },
+    "monitoring": {
+      "name": "Monitoring Agent",
+      "description": "Tracks child progress and trend indicators."
+    }
+  },
+  "features": {
+    "title": "How It Works",
+    "description": "Our multi-agent AI system works alongside healthcare professionals to provide comprehensive early screening and care.",
+    "aiScreening": {
+      "title": "AI-Powered Screening",
+      "description": "Advanced behavioral analysis using video and questionnaires"
+    },
+    "multiRole": {
+      "title": "Multi-Role Platform",
+      "description": "Dedicated interfaces for parents, doctors, and therapists"
+    },
+    "humanLoop": {
+      "title": "Human-in-the-Loop",
+      "description": "AI supports decisions, professionals remain in control"
+    }
+  },
+  "auth": {
+    "roleSelection": "Select Your Role",
+    "selectRole": "Choose your role to get started",
+    "parent": {
+      "title": "Parent",
+      "description": "Monitor your child's development and access screening tools"
+    },
+    "doctor": {
+      "title": "Doctor",
+      "description": "Review screenings and provide clinical assessments"
+    },
+    "therapist": {
+      "title": "Therapist",
+      "description": "Create therapy plans and track session progress"
+    },
+    "continue": "Continue",
+    "back": "Back",
+    "signUp": "Sign Up",
+    "signIn": "Sign In",
+    "name": "Full Name",
+    "email": "Email",
+    "password": "Password",
+    "specialty": "Specialization",
+    "state": "State",
+    "district": "District",
+    "selectState": "Select State",
+    "selectDistrict": "Select District",
+    "selectSpecialty": "Select Specialization",
+    "toggleSignUp": "Don't have an account? Sign Up",
+    "toggleSignIn": "Already have an account? Sign In",
+    "termsAccept": "I accept the terms and conditions",
+    "consentAccept": "I understand and accept the data sharing consent",
+    "signUpButton": "Create Account",
+    "signInButton": "Sign In",
+    "selectErrorRole": "Please select a role",
+    "selectErrorLocation": "Please select specialization, state and district",
+    "providerLocation": "Please provide your location details"
+  },
+  "dashboard": {
+    "parent": {
+      "title": "Parent Dashboard",
+      "welcome": "Welcome",
+      "overview": "Overview",
+      "children": "Children",
+      "screening": "Screening",
+      "progress": "Progress",
+      "awareness": "Awareness",
+      "professionals": "Find Professionals",
+      "reports": "Reports"
+    },
+    "doctor": {
+      "title": "Doctor Dashboard",
+      "welcome": "Welcome",
+      "patients": "Patients",
+      "reviews": "Reviews",
+      "reports": "Reports"
+    },
+    "therapist": {
+      "title": "Therapist Dashboard",
+      "welcome": "Welcome",
+      "patients": "Patients",
+      "sessions": "Sessions",
+      "plans": "Therapy Plans"
+    }
+  },
+  "buttons": {
+    "next": "Next",
+    "previous": "Previous",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "submit": "Submit",
+    "logout": "Logout",
+    "view": "View",
+    "download": "Download",
+    "add": "Add",
+    "close": "Close"
+  },
+  "common": {
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "warning": "Warning",
+    "info": "Information",
+    "noData": "No data available",
+    "language": "Language",
+    "english": "English",
+    "hindi": "हिन्दी",
+    "theme": "Theme"
+  },
+  "roles": {
+    "parent": "Parent",
+    "doctor": "Doctor",
+    "therapist": "Therapist"
+  },
+  "screening": {
+    "title": "Screening Assessment",
+    "startNew": "Start New Screening",
+    "selectChild": "Select Child",
+    "videoUpload": "Video Upload",
+    "questionnaire": "Questionnaire",
+    "riskLevel": "Risk Level",
+    "lowRisk": "Low Risk",
+    "mediumRisk": "Medium Risk",
+    "highRisk": "High Risk",
+    "inProgress": "In Progress",
+    "completed": "Completed",
+    "pending": "Pending"
+  }
+}
