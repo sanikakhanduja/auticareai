@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { motion } from "framer-motion";
 import { ArrowLeft, Baby, Save } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
@@ -18,6 +19,7 @@ import { childrenService } from "@/services/data";
 import { authService } from "@/services/auth";
 
 export default function AddChild() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [isSaving, setIsSaving] = useState(false);
@@ -93,7 +95,7 @@ export default function AddChild() {
     <DashboardLayout>
       <Button variant="ghost" onClick={() => navigate("/parent")} className="mb-6">
         <ArrowLeft className="mr-2 h-4 w-4" />
-        Back to Dashboard
+        {t("buttons.previous")}
       </Button>
 
       <div className="max-w-xl mx-auto">
@@ -107,16 +109,16 @@ export default function AddChild() {
               <Baby className="h-7 w-7 text-secondary" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold">Add Child Profile</h1>
+              <h1 className="text-2xl font-bold">{t("addChild.title")}</h1>
               <p className="text-muted-foreground">
-                Register a new child to begin screening
+                {t("portal.addChildDesc")}
               </p>
             </div>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
-              <Label htmlFor="name">Child's Name *</Label>
+              <Label htmlFor="name">{t("addChild.name")} *</Label>
               <Input
                 id="name"
                 placeholder="Enter child's full name"
@@ -127,7 +129,7 @@ export default function AddChild() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="dob">Date of Birth *</Label>
+              <Label htmlFor="dob">{t("addChild.dateOfBirth")} *</Label>
               <Input
                 id="dob"
                 type="date"
@@ -138,32 +140,32 @@ export default function AddChild() {
               />
               {dateOfBirth && (
                 <p className="text-sm text-muted-foreground">
-                  Age: {calculateAge(dateOfBirth)} years old
+                  {t("childProfile.age")}: {calculateAge(dateOfBirth)} {t("common.loading").replace("Loading...", "years old")}
                 </p>
               )}
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="gender">Gender (Optional)</Label>
+              <Label htmlFor="gender">{t("addChild.gender")}</Label>
               <Select value={gender} onValueChange={(value: "male" | "female" | "other") => setGender(value)}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select gender" />
+                  <SelectValue placeholder={t("auth.selectState")} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="male">Male</SelectItem>
-                  <SelectItem value="female">Female</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
+                  <SelectItem value="male">{t("addChild.male")}</SelectItem>
+                  <SelectItem value="female">{t("addChild.female")}</SelectItem>
+                  <SelectItem value="other">{t("addChild.other")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="pt-4 flex gap-3">
               <Button type="button" variant="outline" onClick={() => navigate("/parent")} className="flex-1">
-                Cancel
+                {t("buttons.cancel")}
               </Button>
               <Button type="submit" className="flex-1" disabled={isSaving}>
                 <Save className="mr-2 h-4 w-4" />
-                {isSaving ? "Creating..." : "Create Profile"}
+                {isSaving ? t("common.loading") : t("addChild.save")}
               </Button>
             </div>
           </form>

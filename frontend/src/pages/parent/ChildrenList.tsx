@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { motion } from "framer-motion";
 import { Baby, Plus, ArrowRight } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";

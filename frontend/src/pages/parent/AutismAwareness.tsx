@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { motion } from "framer-motion";
 import {
   BookOpen,
@@ -140,12 +141,13 @@ const faqItems = [
 ];
 
 export default function AutismAwareness() {
+  const { t } = useTranslation();
   return (
     <DashboardLayout>
       <div className="mb-8">
-        <h1 className="text-3xl font-bold">Autism Awareness & Early Signs</h1>
+        <h1 className="text-3xl font-bold">{t("awareness.title")}</h1>
         <p className="text-muted-foreground mt-2">
-          Educational resources to help you understand autism and recognize early signs
+          {t("awareness.subtitle")}
         </p>
       </div>
 

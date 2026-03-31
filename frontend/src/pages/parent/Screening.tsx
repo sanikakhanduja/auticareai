@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { screenVideo } from "@/services/screening";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -29,43 +30,44 @@ interface QuestionnaireAnswer {
   answer: string;
 }
 
-const questions = [
+const getQuestions = (t: any) => [
   {
     id: "q1",
-    question: "Does your child make eye contact when you call their name?",
-    options: ["Always", "Sometimes", "Rarely", "Never"],
+    question: t("screeningTest.eyeContact"),
+    options: [t("screeningTest.always"), t("screeningTest.sometimes"), t("screeningTest.rarely"), t("screeningTest.never")],
   },
   {
     id: "q2",
-    question: "Does your child point at objects to show interest?",
-    options: ["Always", "Sometimes", "Rarely", "Never"],
+    question: t("screeningTest.pointing"),
+    options: [t("screeningTest.always"), t("screeningTest.sometimes"), t("screeningTest.rarely"), t("screeningTest.never")],
   },
   {
     id: "q3",
-    question: "Does your child engage in pretend play?",
-    options: ["Always", "Sometimes", "Rarely", "Never"],
+    question: t("screeningTest.pretendPlay"),
+    options: [t("screeningTest.always"), t("screeningTest.sometimes"), t("screeningTest.rarely"), t("screeningTest.never")],
   },
   {
     id: "q4",
-    question: "Does your child show interest in other children?",
-    options: ["Always", "Sometimes", "Rarely", "Never"],
+    question: t("screeningTest.childInterest"),
+    options: [t("screeningTest.always"), t("screeningTest.sometimes"), t("screeningTest.rarely"), t("screeningTest.never")],
   },
   {
     id: "q5",
-    question: "Does your child respond to simple instructions?",
-    options: ["Always", "Sometimes", "Rarely", "Never"],
+    question: t("screeningTest.instructions"),
+    options: [t("screeningTest.always"), t("screeningTest.sometimes"), t("screeningTest.rarely"), t("screeningTest.never")],
   },
 ];
 
-const processingSteps = [
-  { agent: "screening", message: "Screening Agent analyzing eye gaze patterns...", duration: 2000 },
-  { agent: "screening", message: "Detecting joint attention patterns...", duration: 1500 },
-  { agent: "screening", message: "Comparing behavior to age baseline...", duration: 2000 },
-  { agent: "clinical", message: "Extracting behavioral signals...", duration: 1500 },
-  { agent: "monitoring", message: "Generating risk assessment...", duration: 2000 },
+const getProcessingSteps = (t: any) => [
+  { agent: "screening", message: t("screeningTest.analyzeEyeGaze"), duration: 2000 },
+  { agent: "screening", message: t("screeningTest.detectJointAttention"), duration: 1500 },
+  { agent: "screening", message: t("screeningTest.compareBehavior"), duration: 2000 },
+  { agent: "clinical", message: t("screeningTest.extractSignals"), duration: 1500 },
+  { agent: "monitoring", message: t("screeningTest.generateRisk"), duration: 2000 },
 ];
 
 export default function Screening() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { selectedChildId, setSelectedChildId } = useAppStore();
@@ -140,6 +142,9 @@ export default function Screening() {
   );
 
   const selectedChildCanStart = selectedChild ? isChildSelectable(selectedChild) : false;
+
+  const questions = useMemo(() => getQuestions(t), [t]);
+  const processingSteps = useMemo(() => getProcessingSteps(t), [t]);
 
   useEffect(() => {
     if (selectedChildId || visibleChildren.length === 0) return;
