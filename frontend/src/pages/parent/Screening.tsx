@@ -466,6 +466,35 @@ export default function Screening() {
                     </div>
                   )}
                 </div>
+
+                {/* Recording Guidelines */}
+                <div className="mt-4 rounded-xl border border-primary/20 bg-primary/5 p-5">
+                  <div className="flex items-start gap-3">
+                    <FileVideo className="h-6 w-6 text-primary mt-0.5 flex-shrink-0" />
+                    <div className="space-y-3">
+                      <h4 className="font-semibold text-base text-foreground">Recording Guidelines</h4>
+                      <p className="text-sm text-muted-foreground leading-relaxed">
+                        To help assess early behavioral patterns, parents are encouraged to record short videos of their child during <span className="font-medium" style={{ color: '#d4b800' }}>simple, natural interactions</span> at home. These activities may include:
+                      </p>
+                      <ul className="text-sm text-muted-foreground space-y-2 list-disc list-inside ml-1">
+                        <li>Calling the child&apos;s name while they are playing to check <span className="font-medium" style={{ color: '#d4b800' }}>response to name</span></li>
+                        <li>Engaging them face-to-face to observe <span className="font-medium" style={{ color: '#d4b800' }}>eye contact</span></li>
+                        <li>Showing or pointing at objects to see if they <span className="font-medium" style={{ color: '#d4b800' }}>follow attention</span></li>
+                        <li>Recording free play to understand <span className="font-medium" style={{ color: '#d4b800' }}>behavior patterns</span></li>
+                        <li>Encouraging <span className="font-medium" style={{ color: '#d4b800' }}>basic imitation tasks</span> (clapping, waving, or blowing bubbles)</li>
+                        <li><span className="font-medium" style={{ color: '#d4b800' }}>Simple communication attempts</span> (asking questions or initiating conversation)</li>
+                        <li>Mild <span className="font-medium" style={{ color: '#d4b800' }}>sensory interactions</span> (introducing a soft sound to observe responses)</li>
+                      </ul>
+                      <p className="text-sm text-muted-foreground leading-relaxed pt-1">
+                        These activities are designed to capture natural reactions related to <span className="font-medium" style={{ color: '#d4b800' }}>social engagement</span>, <span className="font-medium" style={{ color: '#d4b800' }}>communication</span>, and <span className="font-medium" style={{ color: '#d4b800' }}>behavior</span>.
+                      </p>
+                      <p className="text-sm text-primary/90 font-medium pt-2">
+                        <AlertCircle className="h-4 w-4 inline mr-1.5" />
+                        The insights generated are not a medical diagnosis but can help identify early signs that may require further professional evaluation.
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 
